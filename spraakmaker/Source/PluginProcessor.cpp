@@ -57,8 +57,12 @@ SpraakProcessor::~SpraakProcessor() { plan.reset(); }
 
 juce::File SpraakProcessor::dataDir() const
 {
-    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-        .getChildFile ("Application Support").getChildFile ("Spraakmaker");
+    // ~/Library/Application Support/Spraakmaker on macOS, %APPDATA%\Spraakmaker on Windows, ~/.config/Spraakmaker on Linux
+    auto base = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
+   #if JUCE_MAC
+    base = base.getChildFile ("Application Support");
+   #endif
+    return base.getChildFile ("Spraakmaker");
 }
 
 bool SpraakProcessor::isBusesLayoutSupported (const BusesLayout& l) const

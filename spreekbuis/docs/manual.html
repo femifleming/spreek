@@ -47,7 +47,7 @@
 <section>
   <h2><span class="n">02</span>Quick start</h2>
   <ol>
-    <li>In your DAW, add <b>Spreekbuis</b> as an instrument (VST3 or AU, in <code>~/Library/Audio/Plug-Ins</code>). Or open the standalone app.</li>
+    <li>In your DAW, add <b>Spreekbuis</b> as an instrument (VST3 on macOS, Windows and Linux; AU on macOS). Or open the standalone app.</li>
     <li>Press play in the DAW. The <b>LOOP</b> layer is on by default: in bar 1 you hear a Dutch item, in bar 2 there is room to repeat it, with the English whispered.</li>
     <li>Say it out loud in the gap. That's the lesson.</li>
     <li>Turn on <b>WOLK</b> for a cloud of words, or pick a preset from the menu at the top (e.g. <i>Fluisterwolk</i> or <i>Droomstaat</i>).</li>
@@ -72,7 +72,8 @@
 <section>
   <h2><span class="n">04</span>Your word bank and Tongval</h2>
   <h3>Where the words come from</h3>
-  <p>All course items (words, sentences, dialogue lines and Lesson 0's sounds) are pre-recorded as audio, with the exact timing of every word, in <code>~/Library/Application Support/Spreekbuis/voice/</code>. English glosses are recorded too, for the whisper layer.</p>
+  <p>All course items (words, sentences, dialogue lines and Lesson 0's sounds) are recorded as audio, with the timing of every word, in the voice bank folder (see section 12). English glosses are recorded too, for the whisper layer. The bank is rendered on your machine by <code>tools/render.sh</code> with the system's Dutch text-to-speech (macOS, Windows and Linux; see section 12).</p>
+  <p><b>No bank yet?</b> Spreekbuis then speaks every item with its <b>built-in voice</b>: the Klatt formant synthesizer it shares with Spraakmaker (made once, in <code>voice-builtin/</code>, the first time it loads; this takes a short while and the karaoke says so). It is a robot voice, intelligible rather than natural: render a real voice when you can.</p>
   <h3>Which words are offered</h3>
   <p>At load, Spreekbuis reads Tongval's progress file and builds a bank of everything you have learned (words and sentences you've finished in lessons), plus the lesson you're currently on. <b>Alle items</b> ignores your progress and plays everything. After a study session in Tongval, press <b>Herlaad</b> to pick up the new words.</p>
   <h3>Plays count as listening</h3>
@@ -211,14 +212,18 @@
   <h2><span class="n">12</span>Files, voices and limits</h2>
   <table>
     <tr><th>What</th><th>Where</th></tr>
-    <tr><td>Plug-ins</td><td><code>~/Library/Audio/Plug-Ins/VST3/Spreekbuis.vst3</code>, <code>…/Components/Spreekbuis.component</code></td></tr>
-    <tr><td>Voice bank</td><td><code>~/Library/Application Support/Spreekbuis/voice/</code> (about 300 MB)</td></tr>
-    <tr><td>Play log</td><td><code>~/Library/Application Support/Spreekbuis/plays.json</code></td></tr>
-    <tr><td>Tongval progress (read)</td><td><code>~/Library/Application Support/Tongval/progress.json</code></td></tr>
-    <tr><td>Source</td><td><code>~/spreekbuis</code></td></tr>
+    <tr><td>Plug-ins (macOS)</td><td><code>~/Library/Audio/Plug-Ins/VST3/Spreekbuis.vst3</code>, <code>…/Components/Spreekbuis.component</code>, app in <code>/Applications</code></td></tr>
+    <tr><td>Plug-ins (Windows)</td><td><code>C:\Program Files\Common Files\VST3\Spreekbuis.vst3</code>, <code>Spreekbuis.exe</code> anywhere</td></tr>
+    <tr><td>Plug-ins (Linux)</td><td><code>~/.vst3/Spreekbuis.vst3</code>, <code>Spreekbuis</code> standalone anywhere</td></tr>
+    <tr><td>Data folder</td><td><code>~/Library/Application Support/Spreekbuis/</code> (macOS), <code>%APPDATA%\Spreekbuis\</code> (Windows), <code>~/.config/Spreekbuis/</code> (Linux)</td></tr>
+    <tr><td>Voice bank</td><td><code>voice/</code>, <code>voice-female/</code> in the data folder (about 300 MB each); <code>voice-builtin/</code> for the built-in voice</td></tr>
+    <tr><td>Play log</td><td><code>plays.json</code> in the data folder</td></tr>
+    <tr><td>Tongval progress (read)</td><td><code>~/Library/Application Support/Tongval/progress.json</code> (macOS)</td></tr>
+    <tr><td>Source</td><td><a href="https://github.com/femifleming/spreek">github.com/femifleming/spreek</a> (spreekbuis/)</td></tr>
   </table>
-  <h3>Better voices</h3>
-  <p>The bank is recorded with the best Dutch voice installed when it was made. To upgrade: System Settings → Accessibility → Spoken Content → System voice → Manage Voices → Dutch → download <b>Xander (Enhanced)</b> or <b>Claire (Premium)</b>. Then run <code>~/spreekbuis/tools/render.sh --force</code> and press <b>Herlaad</b>. Add <code>--stories</code> to also record the Tongval stories.</p>
+  <h3>Rendering and better voices</h3>
+  <p><b>macOS:</b> <code>spreekbuis/tools/render.sh</code> records every item with the best installed Dutch voice (Premium, then Enhanced, then the compact one) and exact word onsets. To upgrade the voice: System Settings → Accessibility → Spoken Content → System voice → Manage Voices → Dutch → download <b>Xander (Enhanced)</b> or <b>Claire (Premium)</b>. Then run <code>render.sh --force</code> and press <b>Herlaad</b>. <code>--female</code> renders the woman's bank (Stem: Vrouw), <code>--stories</code> adds the Tongval stories.</p>
+  <p><b>Windows:</b> <code>python tools\render.py</code> uses the Windows voices (Settings → Time &amp; language → Speech → Manage voices → add Dutch). <b>Linux:</b> the same script uses <a href="https://github.com/rhasspy/piper">piper</a> (set <code>PIPER_MODEL</code> to a Dutch <code>.onnx</code> model) or <code>espeak-ng -v nl</code>. On these platforms word onsets are estimated from the audio.</p>
   <h3>Known limits</h3>
   <ul>
     <li>The loop starts items at the start of an audio block, not sample-accurately; bars follow the host's time signature (4/4 when free-running).</li>

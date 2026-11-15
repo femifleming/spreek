@@ -2,8 +2,8 @@
 // plus an editor snapshot of each OLED page.
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_gui_basics/juce_gui_basics.h>
-#include "../Source/PluginProcessor.h"
-#include "../Source/PluginEditor.h"
+#include "PluginProcessor.h"
+#include "PluginEditor.h"
 #include <iostream>
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter();

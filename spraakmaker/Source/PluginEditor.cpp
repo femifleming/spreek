@@ -99,9 +99,9 @@ void SpraakEditor::renderBackground()
     g.setFont (panelFont (46, true));
     g.drawText ("Spraakmaker", juce::Rectangle<float> (16, 74, 420, 52), juce::Justification::centredLeft);
     g.setFont (panelFont (23, true));
-    g.drawText ("VCE26-S3", juce::Rectangle<float> (18, 136, 200, 28), juce::Justification::centredLeft);
+    g.drawText ("SPRAAKCOMPUTER", juce::Rectangle<float> (18, 136, 260, 28), juce::Justification::centredLeft);
     g.setFont (panelFont (29, false));
-    g.drawText ("moddict", juce::Rectangle<float> (640, 88, 152, 34), juce::Justification::centredRight);
+    g.drawText ("spreek", juce::Rectangle<float> (640, 88, 152, 34), juce::Justification::centredRight);
 
     // jacks
     for (auto& j : jacks)

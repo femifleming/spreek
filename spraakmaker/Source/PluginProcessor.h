@@ -1,4 +1,4 @@
-// Spraakmaker — speech computer instrument (after the Phonemer VCE26-S3 Eurorack module), English + Dutch.
+// Spraakmaker — speech computer instrument (an homage to a Eurorack speech module), English + Dutch.
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>

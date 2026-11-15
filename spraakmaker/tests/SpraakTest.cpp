@@ -1,9 +1,9 @@
 // Headless test: phonemize + render English and Dutch phrases to WAV, check coverage and levels.
 #include <juce_audio_formats/juce_audio_formats.h>
-#include "../Source/G2P.h"
-#include "../Source/Planner.h"
-#include "../Source/Voice.h"
-#include "../Source/Phonemes.h"
+#include "G2P.h"
+#include "Planner.h"
+#include "Voice.h"
+#include "Phonemes.h"
 #include <BinaryData.h>
 #include <iostream>
 #include <set>

@@ -13,7 +13,7 @@
   <h1>spraakmaker</h1>
   <div class="sub">A speech computer that talks English and Dutch.<br>VST3 · AU · Standalone · manual v1.0</div>
   <img class="shot tall" src="img/ui_home.png">
-  <div class="foot"><span>SPRAAKMAKER = SPEECH MAKER</span><span>UNOFFICIAL EMULATION · PERSONAL USE</span></div>
+  <div class="foot"><span>SPRAAKMAKER = SPEECH MAKER</span><span>UNOFFICIAL · AN HOMAGE AFTER THE PHONEMER BY MODDICT</span></div>
 </div>
 
 <section>
@@ -37,9 +37,9 @@
 
 <section>
   <h2><span class="n">01</span>What Spraakmaker is</h2>
-  <p class="lead">Spraakmaker is a plug-in version of the moddict Phonemer VCE26-S3, a Eurorack "speech computer", in a black panel edition. It turns text into speech with an 80s-style formant synthesizer, and it speaks both English and Dutch.</p>
+  <p class="lead">Spraakmaker is a speech computer as a plug-in, an homage after the Phonemer by moddict (a Eurorack module), in a black panel edition. It turns text into speech with an 80s-style formant synthesizer, and it speaks both English and Dutch.</p>
   <p>It is not a sample player: every word is synthesised from scratch, phoneme by phoneme, so you can bend pitch, mouth size, speed, intonation and emotion, play it as a chord, run it through a vocoder or chop it into single phonemes.</p>
-  <div class="box"><b>Unofficial.</b>This is a personal emulation built from the module's photo and published feature list; no manual was available, so some behaviours are interpretations (see section 13). It is not affiliated with moddict and copies their panel, so it stays on this Mac and isn't shared.</div>
+  <div class="box"><b>Unofficial.</b>This is an independent homage built from the module's photo and published feature list; no manual was available, so some behaviours are interpretations (see section 13). It is not affiliated with or endorsed by moddict; their names and marks are not used on the panel. Part of the <b>spreek</b> bundle with Spreekbuis.</div>
 </section>
 
 <section>
@@ -260,10 +260,11 @@
   <h2><span class="n">13</span>Files and limits</h2>
   <table>
     <tr><th>What</th><th>Where</th></tr>
-    <tr><td>Plug-ins</td><td><code>~/Library/Audio/Plug-Ins/VST3/Spraakmaker.vst3</code>, <code>…/Components/Spraakmaker.component</code></td></tr>
-    <tr><td>App</td><td><code>/Applications/Spraakmaker.app</code></td></tr>
-    <tr><td>Lists and presets</td><td><code>~/Library/Application Support/Spraakmaker/</code></td></tr>
-    <tr><td>Source</td><td><code>~/spraakmaker</code></td></tr>
+    <tr><td>Plug-ins (macOS)</td><td><code>~/Library/Audio/Plug-Ins/VST3/Spraakmaker.vst3</code>, <code>…/Components/Spraakmaker.component</code>, app in <code>/Applications</code></td></tr>
+    <tr><td>Plug-ins (Windows)</td><td><code>C:\Program Files\Common Files\VST3\Spraakmaker.vst3</code>, <code>Spraakmaker.exe</code> anywhere</td></tr>
+    <tr><td>Plug-ins (Linux)</td><td><code>~/.vst3/Spraakmaker.vst3</code>, <code>Spraakmaker</code> standalone anywhere</td></tr>
+    <tr><td>Lists and presets</td><td><code>~/Library/Application Support/Spraakmaker/</code> (macOS), <code>%APPDATA%\Spraakmaker\</code> (Windows), <code>~/.config/Spraakmaker/</code> (Linux)</td></tr>
+    <tr><td>Source</td><td><a href="https://github.com/femifleming/spreek">github.com/femifleming/spreek</a> (spraakmaker/)</td></tr>
   </table>
   <h3>Known limits</h3>
   <ul>
@@ -271,6 +272,7 @@
     <li>Dutch compound words and loanwords can get wrong stress or vowels; English words outside the dictionary use rough letter rules.</li>
     <li>The Dutch dictionary is Tongval's ~1,300 words, not the 144,000 words of the hardware.</li>
     <li>No manual for the hardware was available, so microtonal mode, chord memories, the start point and the shift functions are interpretations of the published feature list. The hardware's Live mode isn't included.</li>
+    <li>The panel fonts are the system's (Avenir Next / Helvetica Neue on macOS; the default sans-serif elsewhere).</li>
   </ul>
 </section>
 

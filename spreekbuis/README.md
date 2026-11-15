@@ -2,38 +2,18 @@
 
 # spreekbuis
 
-Dutch as an instrument. A VST3/AU/Standalone instrument that plays the words and sentences you learn in
-[Tongval](../tongval) — so practising Dutch and making experimental music become the same thing.
+Dutch as an instrument: a VST3 / AU / standalone instrument that plays the words and sentences of the Tongval Dutch
+course, so practising Dutch and making experimental music become the same thing. Part of the
+[spreek](../README.md) bundle; the full description, installation and the voice rendering are in the root README, the
+details in [the manual](../docs/Spreekbuis%20Manual.pdf) (source: `docs/manual.html`).
 
-## Layers (mix freely)
-- **Loop** — the current Tongval lesson (or any lesson) as tempo-synced call & response: an item in the call
-  bars, silence (plus the English whispered) in the answer bars. Karaoke highlight; MIDI out note at every word onset
-  (first word accented) — the rhythm of Dutch as a sequencer.
-- **Wolk** (cloud) — granular cloud of the words you know: density, grain size, scatter, position, pitch, stereo,
-  reverse, and *translation grains*: English glosses run through a 12-band noise vocoder (whisper).
-- **Klinker** — formant filter whose XY pad is the Dutch vowel chart (i y u ɪ ʏ e ø o ə ɔ ɛ a ɑ), with diphthong
-  glides ɛi (ij/ei), œy (ui), ʌu (ou/au). Source: saw, noise, the sidechain input, saw + input, or **Loop / Wolk / Loop + Wolk** — the words and the grain cloud
-  heard through the vowel chart (an insert, at the same loudness; the whispered translations stay dry). Click or drag the chart
-  to hear it; notes play it when *Toetsen* includes Klinker (a hint on the chart says when they don't). Live doesn't send
-  audio into instruments, so *Input* is silent there (the chart says so).
-- **Stem** (Man / Vrouw, top bar) — the voice of the words (a second rendered bank) and the vowel chart (female formants,
-  an octave higher). Render the woman's voice with `tools/render.sh --female` (Claire if installed, else Ellen, Flemish).
-- **G** — the Dutch g/ch as a pitched fricative: hard Holland /x/ with uvular rasp ↔ soft Flemish /ɣ/ with voicing.
-- **Orca** — UDP on 127.0.0.1:49162 (Orca's `;` operator): `;fiets` speaks a word in your bank, `;g` / `;g7` fires
-  the g (base-36 semitones), `;vui` `;veu` `;vij` `;va` hits a vowel, anything else base-36 indexes your items.
-- **Keys** — MIDI notes play words (note → item), the vowel pad, the g, or everything.
+- `Source/` — the plug-in (Bank: the voice bank and Tongval's progress; Dsp: filters, grains, whisperizer, vowel chart,
+  g; PluginProcessor / PluginEditor).
+- `tools/` — `render.sh` renders the voice bank: `render.swift` on macOS (AVSpeech, exact word onsets), `render.py` on
+  Windows (SAPI) and Linux (piper / espeak-ng); `export_items.js` exports Tongval's live word lists when Tongval is here.
+- `data/items.json` — the course items (Dutch, English gloss, lesson), also compiled into the plug-in for the built-in
+  Klatt voice (`../common/`) that speaks when no bank has been rendered.
+- `tests/SBTest.cpp` — renders every layer offline and checks it is audible and finite; also the real Orca UDP socket.
 
-## Words and progress
-- Voices: `tools/render.sh` renders every Tongval item (words, sentences, dialog, lesson 0) with the best installed
-  nl-NL voice plus English glosses into `~/Library/Application Support/Spreekbuis/voice/` (manifest with word onsets).
-  Re-run it after installing *Xander (Enhanced)* or *Claire (Premium)*; add `--stories` for story lines, `--force` to redo all.
-- Only items you've learned in Tongval are offered (plus the current lesson); **Alle items** plays everything.
-- Plays are logged to `~/Library/Application Support/Spreekbuis/plays.json`; Tongval reads it at launch and shows
-  ♪ counts in the word lists and gives listening XP (1 per 5 plays, max 30 a day).
-
-## Build
-    cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release   # JUCE_DIR defaults to ~/disting-ex-plugins/JUCE
-    cmake --build build                                       # installs into ~/Library/Audio/Plug-Ins
-    build/SBTest_artefacts/Release/SBTest                     # offline render test of every layer
-
-Local project; not published.
+Plays are logged to `plays.json` in the data folder (`~/Library/Application Support/Spreekbuis` on macOS); Tongval reads it
+at launch and shows ♪ counts and listening XP.

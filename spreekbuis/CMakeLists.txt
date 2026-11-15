@@ -1,16 +1,9 @@
-cmake_minimum_required(VERSION 3.22)
-set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum macOS")
-set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "Architecture")
-project(Spreekbuis VERSION 1.0.0 LANGUAGES C CXX)
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# spreekbuis — Dutch as an instrument (Tongval's words: lesson loop, word cloud, vowel chart, g, Orca bridge)
+set(SB_SOURCES Source/Bank.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp ${SPREEK_COMMON_SOURCES})
+set(SB_DEFS ${SPREEK_DEFS})
 
-set(JUCE_DIR "$ENV{HOME}/disting-ex-plugins/JUCE" CACHE PATH "JUCE checkout (9.x)")
-add_subdirectory(${JUCE_DIR} ${CMAKE_BINARY_DIR}/JUCE)
-
-set(SB_SOURCES Source/Bank.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp)
-set(SB_DEFS JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0 JUCE_DISPLAY_SPLASH_SCREEN=0
-            JUCE_STANDALONE_FILTER_WINDOW_USE_KIOSK_MODE=0)
+# the course items (Dutch + English gloss) the built-in voice speaks when no voice bank has been rendered
+juce_add_binary_data(SbData NAMESPACE SbData HEADER_NAME SbData.h SOURCES data/items.json)
 
 juce_add_plugin(Spreekbuis
     VERSION ${PROJECT_VERSION}
@@ -18,10 +11,10 @@ juce_add_plugin(Spreekbuis
     BUNDLE_ID "com.freakiepie.spreekbuis"
     PLUGIN_MANUFACTURER_CODE Frkp
     PLUGIN_CODE Sprk
-    FORMATS AU VST3 Standalone
+    FORMATS ${SPREEK_FORMATS}
     PRODUCT_NAME "Spreekbuis"
     DESCRIPTION "Dutch as an instrument - learn Tongval's words inside your music"
-    ICON_BIG Resources/icon.png
+    ICON_BIG ${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon.png
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT TRUE
@@ -31,17 +24,19 @@ juce_add_plugin(Spreekbuis
     VST3_CATEGORIES Instrument Synth
     MICROPHONE_PERMISSION_ENABLED TRUE
     MICROPHONE_PERMISSION_TEXT "Audio input (optional) is shaped by the vowel pad."
-    COPY_PLUGIN_AFTER_BUILD TRUE)
+    COPY_PLUGIN_AFTER_BUILD ${SPREEK_COPY_AFTER_BUILD})
 target_sources(Spreekbuis PRIVATE ${SB_SOURCES})
-target_include_directories(Spreekbuis PRIVATE Source)
+target_include_directories(Spreekbuis PRIVATE Source ${SPREEK_COMMON_DIR})
 target_compile_definitions(Spreekbuis PUBLIC ${SB_DEFS})
-target_link_libraries(Spreekbuis PRIVATE juce::juce_audio_utils juce::juce_dsp
-    PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_lto_flags juce::juce_recommended_warning_flags)
+target_link_libraries(Spreekbuis PRIVATE SpraakData SbData juce::juce_audio_utils juce::juce_dsp
+    PUBLIC juce::juce_recommended_config_flags ${SPREEK_LTO_FLAGS} juce::juce_recommended_warning_flags)
 
-# offline render test
-juce_add_console_app(SBTest PRODUCT_NAME "SBTest")
-target_sources(SBTest PRIVATE tests/SBTest.cpp ${SB_SOURCES})
-target_include_directories(SBTest PRIVATE Source)
-target_compile_definitions(SBTest PRIVATE ${SB_DEFS} JucePlugin_Name="SBTest" JucePlugin_Build_Standalone=0
-    JucePlugin_IsSynth=1 JucePlugin_WantsMidiInput=1 JucePlugin_ProducesMidiOutput=1 JucePlugin_IsMidiEffect=0)
-target_link_libraries(SBTest PRIVATE juce::juce_audio_utils juce::juce_dsp PUBLIC juce::juce_recommended_config_flags)
+if(SPREEK_BUILD_TESTS)
+    # offline render test of every layer (no plug-in wrapper)
+    juce_add_console_app(SBTest PRODUCT_NAME "SBTest")
+    target_sources(SBTest PRIVATE tests/SBTest.cpp ${SB_SOURCES})
+    target_include_directories(SBTest PRIVATE Source ${SPREEK_COMMON_DIR})
+    target_compile_definitions(SBTest PRIVATE ${SB_DEFS} JucePlugin_Name="SBTest" JucePlugin_Build_Standalone=0
+        JucePlugin_IsSynth=1 JucePlugin_WantsMidiInput=1 JucePlugin_ProducesMidiOutput=1 JucePlugin_IsMidiEffect=0)
+    target_link_libraries(SBTest PRIVATE SpraakData SbData juce::juce_audio_utils juce::juce_dsp PUBLIC juce::juce_recommended_config_flags)
+endif()

@@ -3,11 +3,14 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <vector>
 #include <map>
+#include <functional>
+#include <memory>
 
 namespace sb {
 
-juce::File supportDir();          // ~/Library/Application Support/Spreekbuis
+juce::File supportDir();          // ~/Library/Application Support/Spreekbuis (Windows: %APPDATA%\Spreekbuis, Linux: ~/.config/Spreekbuis)
 juce::File voiceDir(bool female = false);  // …/Spreekbuis/voice, or voice-female (tools/render.sh --female)
+juce::File builtInVoiceDir(bool female);   // …/Spreekbuis/voice-builtin[-female]: the Klatt formant voice, made on first use
 juce::File tongvalProgressFile(); // ~/Library/Application Support/Tongval/progress.json
 juce::File playLogFile();         // …/Spreekbuis/plays.json
 int todayNumber();                // local day number, same formula as Tongval's today()
@@ -31,6 +34,7 @@ struct Bank {
     int unit = 1, knownCount = 0;
     bool allItems = false, manifestFound = false;
     bool female = false;               // the woman's voice is what was loaded
+    bool builtIn = false;              // no rendered bank: the built-in formant voice speaks the items
     mutable std::vector<double> lastCounted; // audio thread: when each item was last counted as heard
 };
 

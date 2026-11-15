@@ -1,4 +1,4 @@
-// Spraakmaker — the 20HP panel (dark edition), drawn in vector at the module's proportions, with a working OLED menu.
+// Spraakmaker — the 20HP panel (dark edition), drawn in vector at Eurorack proportions, with a working OLED menu.
 #pragma once
 #include "PluginProcessor.h"
 

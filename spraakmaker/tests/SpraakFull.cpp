@@ -5,7 +5,7 @@
 // A feature "works" when it makes sound and (for a control) moves the sound away from the same render without it.
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_gui_basics/juce_gui_basics.h>
-#include "../Source/PluginProcessor.h"
+#include "PluginProcessor.h"
 #include <iostream>
 #include <juce_dsp/juce_dsp.h>
 

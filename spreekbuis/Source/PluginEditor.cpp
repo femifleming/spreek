@@ -119,7 +119,7 @@ struct Karaoke : juce::Component {
         if (!b || !b->manifestFound) {
             g.drawText("KARAOKE", inner.removeFromTop(16), juce::Justification::centredLeft);
             g.setColour(juce::Colours::white); g.setFont(sans(30, true));
-            g.drawText(b ? "Geen stemmen - run tools/render.sh" : "Laden…", inner, juce::Justification::centredLeft);
+            g.drawText(b ? (b->status.isNotEmpty() ? b->status : "Geen stemmen - run tools/render.sh") : "Laden…", inner, juce::Justification::centredLeft);
             return;
         }
         if (item < 0 || item >= (int) b->items.size()) {
@@ -267,7 +267,7 @@ struct SpreekbuisEditor::Content : juce::Component {
         port.onReturnKey = [this] { p.setOrcaPort(port.getText().getIntValue()); };
         port.onFocusLost = [this] { p.setOrcaPort(port.getText().getIntValue()); };
         for (auto* l : { &status, &orcaStatus, &help }) { l->setFont(mono(11)); l->setColour(juce::Label::textColourId, mute); }
-        help.setText("orca:  ;fiets  ;g  ;g7  ;vui  ;veu  ;1a      re-render voices: ~/spreekbuis/tools/render.sh", juce::dontSendNotification);
+        help.setText("orca:  ;fiets  ;g  ;g7  ;vui  ;veu  ;1a      natural voices: tools/render.sh (see the manual)", juce::dontSendNotification);
 
         // loop
         choice("loop_unit", "Les"); choice("loop_set", "Speelt"); choice("loop_bars", "Roep (maten)"); choice("loop_gap", "Antwoord (maten)");
