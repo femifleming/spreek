@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Spreekbuis manual</title><link rel="stylesheet" href="manual.css"></head>
+<body>
+
+<div class="cover">
+  <img class="icon" src="img/icon.png">
+  <h1>spreekbuis</h1>
+  <div class="sub">Nederlands als instrument — Dutch as an instrument.<br>VST3 · AU · Standalone · manual v1.0</div>
+  <img class="shot" src="img/window.png">
+  <div class="foot"><span>SPREEKBUIS = SPEAKING TUBE</span><span>COMPANION TO TONGVAL</span></div>
+</div>
+
+<section>
+  <h2><span class="n">00</span>Contents</h2>
+  <div class="toc">
+    <div><span>01</span>What Spreekbuis is</div>
+    <div><span>02</span>Quick start</div>
+    <div><span>03</span>The window</div>
+    <div><span>04</span>Your word bank and Tongval</div>
+    <div><span>05</span>Loop — the lesson as a loop</div>
+    <div><span>06</span>Wolk — word cloud</div>
+    <div><span>07</span>Klinker — the vowel pad</div>
+    <div><span>08</span>G — the Dutch g</div>
+    <div><span>09</span>Orca bridge</div>
+    <div><span>10</span>Keys, MIDI and audio routing</div>
+    <div><span>11</span>Presets</div>
+    <div><span>12</span>Files, voices and limits</div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">01</span>What Spreekbuis is</h2>
+  <p class="lead">Spreekbuis plays the Dutch you are learning in Tongval as sound material. Every word, sentence and dialogue line from the course is recorded with a real Dutch voice, and the plug-in turns them into loops, grain clouds, vowel drones and throat noise you can use in a track.</p>
+  <p>It works in two directions. While you make music, you hear and repeat the words you are studying. And every word you play is logged, so Tongval can show it as <i>heard in your music</i> and give you a little listening XP.</p>
+  <p>It has five layers that you can mix freely, each with its own on/off button:</p>
+  <table>
+    <tr><th>Layer</th><th>Dutch label</th><th>What it does</th></tr>
+    <tr><td>Loop</td><td>LOOP</td><td>The current lesson as tempo-synced call and response, with karaoke text and MIDI out.</td></tr>
+    <tr><td>Word cloud</td><td>WOLK</td><td>Granular cloud of the words you know, with whispered English translations.</td></tr>
+    <tr><td>Vowel pad</td><td>KLINKER</td><td>Formant filter controlled by the Dutch vowel chart.</td></tr>
+    <tr><td>G generator</td><td>G</td><td>The Dutch g/ch as a playable, pitched noise.</td></tr>
+    <tr><td>Orca bridge</td><td>ORCA</td><td>Trigger words, vowels and the g from Orca over UDP.</td></tr>
+  </table>
+  <p class="small">There is no microphone or speech-recognition part: Spreekbuis only speaks, it doesn't listen.</p>
+</section>
+
+<section>
+  <h2><span class="n">02</span>Quick start</h2>
+  <ol>
+    <li>In your DAW, add <b>Spreekbuis</b> as an instrument (VST3 or AU, in <code>~/Library/Audio/Plug-Ins</code>). Or open the standalone app.</li>
+    <li>Press play in the DAW. The <b>LOOP</b> layer is on by default: in bar 1 you hear a Dutch item, in bar 2 there is room to repeat it, with the English whispered.</li>
+    <li>Say it out loud in the gap. That's the lesson.</li>
+    <li>Turn on <b>WOLK</b> for a cloud of words, or pick a preset from the menu at the top (e.g. <i>Fluisterwolk</i> or <i>Droomstaat</i>).</li>
+    <li>Play MIDI notes: by default each key plays a word (change this with <b>Toetsen</b>).</li>
+  </ol>
+  <div class="box"><b>Your bank starts small.</b>Spreekbuis only offers words you have learned in Tongval, plus the lesson you are on. On day one that is lesson 1. Press <b>Alle items</b> to unlock all 1,258 items at once (uses about 250 MB of memory per instance).</div>
+</section>
+
+<section>
+  <h2><span class="n">03</span>The window</h2>
+  <img class="shot" src="img/window.png">
+  <table>
+    <tr><th>Area</th><th>What it shows / does</th></tr>
+    <tr><td>Top bar</td><td>Status: how many items you've learned, how many are playing, the current lesson and the Dutch voice in use. Then the <b>preset menu</b>, <b>Alle items</b> (all items on/off) and <b>Herlaad</b> (reload your Tongval progress and the voice bank).</td></tr>
+    <tr><td>Karaoke line</td><td>The item the loop is playing: kind and lesson (e.g. <i>ZIN — LES 1</i>), the Dutch with the current word highlighted in yellow, and the English underneath.</td></tr>
+    <tr><td>Layer panels</td><td>LOOP, WOLK, KLINKER, G and ORCA. Click a layer's name button to turn it on (orange) or off.</td></tr>
+    <tr><td>Bottom line</td><td>A reminder of the Orca message syntax and the voice re-render command.</td></tr>
+  </table>
+  <p>The window can be resized; everything scales. The plug-in is dark-only.</p>
+</section>
+
+<section>
+  <h2><span class="n">04</span>Your word bank and Tongval</h2>
+  <h3>Where the words come from</h3>
+  <p>All course items (words, sentences, dialogue lines and Lesson 0's sounds) are pre-recorded as audio, with the exact timing of every word, in <code>~/Library/Application Support/Spreekbuis/voice/</code>. English glosses are recorded too, for the whisper layer.</p>
+  <h3>Which words are offered</h3>
+  <p>At load, Spreekbuis reads Tongval's progress file and builds a bank of everything you have learned (words and sentences you've finished in lessons), plus the lesson you're currently on. <b>Alle items</b> ignores your progress and plays everything. After a study session in Tongval, press <b>Herlaad</b> to pick up the new words.</p>
+  <h3>Plays count as listening</h3>
+  <p>Every item Spreekbuis plays is logged in <code>plays.json</code>. The next time you open Tongval, words you've played show a <b>♪ count</b> in the lesson word list and the dictionary, and you get listening XP: 1 XP per 5 plays, at most 30 XP a day. Hearing a word isn't the same as recalling it, so plays don't change your review schedule.</p>
+</section>
+
+<section>
+  <h2><span class="n">05</span>Loop — the lesson as a loop</h2>
+  <p>The loop plays one item per <i>call</i>, then leaves an <i>answer</i> gap for you to repeat it, locked to the host tempo. While the DAW is stopped (or in the standalone app) it runs at its own tempo, <b>Vrije BPM</b>. During the answer bars the English translation is whispered, if enabled.</p>
+  <table>
+    <tr><th>Control</th><th>Range</th><th>What it does</th></tr>
+    <tr><td>LOOP button</td><td class="r">on/off</td><td>Turns the layer on (default on).</td></tr>
+    <tr><td>Les</td><td class="r">current, 1–36</td><td>Which lesson to loop. <i>current (Tongval)</i> follows your progress.</td></tr>
+    <tr><td>Speelt</td><td class="r">Words · Sentences · Dialog · All</td><td>Which kind of items to play.</td></tr>
+    <tr><td>Volgorde</td><td class="r">In order · Shuffle</td><td>Order of items.</td></tr>
+    <tr><td>Roep (maten)</td><td class="r">1 · 2 · 4</td><td>Call length in bars: how long each item gets.</td></tr>
+    <tr><td>Antwoord (maten)</td><td class="r">0 · 1 · 2 · 4</td><td>Answer gap in bars. 0 = continuous, no gaps.</td></tr>
+    <tr><td>Fluister vertaling</td><td class="r">on/off</td><td>Whisper the English during the answer bars.</td></tr>
+    <tr><td>MIDI uit</td><td class="r">on/off</td><td>Send a MIDI note at every word onset (VST3).</td></tr>
+    <tr><td>Niveau</td><td class="r">0–1.5</td><td>Loop level.</td></tr>
+    <tr><td>Toon</td><td class="r">±12 st</td><td>Pitch of the voice.</td></tr>
+    <tr><td>Vrije BPM</td><td class="r">50–200</td><td>Tempo when the host isn't playing.</td></tr>
+    <tr><td>MIDI noot</td><td class="r">24–96</td><td>Note number of the MIDI out notes.</td></tr>
+  </table>
+  <div class="box blue"><b>The rhythm of Dutch as a sequencer.</b>With MIDI uit on, every word sends a note; the first word of each item is accented (higher velocity). Route Spreekbuis's MIDI output to a drum rack or a synth and the sentence becomes a rhythm pattern.</div>
+</section>
+
+<section>
+  <h2><span class="n">06</span>Wolk — word cloud</h2>
+  <p>A granular cloud made from the words in your bank: short slices of words scattered in time, pitch and stereo. Some grains can be English translations turned into whispers by a 12-band noise vocoder.</p>
+  <table>
+    <tr><th>Control</th><th>Range</th><th>What it does</th></tr>
+    <tr><td>Niveau</td><td class="r">0–1.5</td><td>Cloud level.</td></tr>
+    <tr><td>Dichtheid</td><td class="r">0–80</td><td>Grains per second. 0 = only grains you trigger with keys or Orca.</td></tr>
+    <tr><td>Korrel ms</td><td class="r">15–900 ms</td><td>Grain length. Long grains play whole words; short ones become texture.</td></tr>
+    <tr><td>Spreiding</td><td class="r">0–1</td><td>Scatter: how much the start position wanders.</td></tr>
+    <tr><td>Positie</td><td class="r">0–1</td><td>Where in each word grains start.</td></tr>
+    <tr><td>Toon</td><td class="r">±24 st</td><td>Grain pitch (also used for words played from keys and Orca).</td></tr>
+    <tr><td>Stereo</td><td class="r">0–1</td><td>Stereo spread.</td></tr>
+    <tr><td>Achteruit</td><td class="r">0–1</td><td>Share of grains played backwards.</td></tr>
+    <tr><td>Vertaling</td><td class="r">0–1</td><td>Share of grains that are English translations.</td></tr>
+    <tr><td>Fluister</td><td class="r">0–1.5</td><td>Level of the whispered translations (also used by the loop).</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2><span class="n">07</span>Klinker — the vowel pad</h2>
+  <p>A formant filter whose XY pad is the Dutch vowel chart, the same one linguists use: <b>left–right</b> is front–back of the tongue, <b>top–bottom</b> is closed–open mouth. Drag the dot to <span class="ipa">y</span> (the <i>uu</i> of <i>muur</i>) or <span class="ipa">ø</span> (the <i>eu</i> of <i>neus</i>) and you hear exactly the vowels Lesson 0 teaches, from a saw wave, noise or your own audio.</p>
+  <table>
+    <tr><th>Chart symbol</th><th>Dutch spelling</th><th>Example</th></tr>
+    <tr><td class="ipa">i · y · u</td><td>ie · uu · oe</td><td>niet · muur · boek</td></tr>
+    <tr><td class="ipa">ɪ · ʏ</td><td>i · u</td><td>vis · bus</td></tr>
+    <tr><td class="ipa">e · ø · o</td><td>ee · eu · oo</td><td>twee · neus · boot</td></tr>
+    <tr><td class="ipa">ə</td><td>e (weak)</td><td>de · lopen</td></tr>
+    <tr><td class="ipa">ɛ · ɔ</td><td>e · o</td><td>bed · pot</td></tr>
+    <tr><td class="ipa">a · ɑ</td><td>aa · a</td><td>maan · man</td></tr>
+  </table>
+  <table>
+    <tr><th>Control</th><th>Range</th><th>What it does</th></tr>
+    <tr><td>XY pad</td><td class="r">front–back × close–open</td><td>The vowel. Automatable as <i>Front-back</i> and <i>Close-open</i>.</td></tr>
+    <tr><td>Tweeklank</td><td class="r">Off · <span class="ipa">ɛi · œy · ʌu</span></td><td>Diphthong glide: the dot travels the path of ij/ei, ui or ou/au, as an LFO.</td></tr>
+    <tr><td>Bron</td><td class="r">Saw · Noise · Input · Saw + Input</td><td>Sound source. <i>Input</i> uses the side-chain/input bus, so Spreekbuis works as a vowel effect.</td></tr>
+    <tr><td>Niveau</td><td class="r">0–1.5</td><td>Level.</td></tr>
+    <tr><td>Snelheid</td><td class="r">0.02–8 Hz</td><td>Glide speed.</td></tr>
+    <tr><td>Adem</td><td class="r">0–1</td><td>Breath noise mixed into the source.</td></tr>
+    <tr><td>Resonantie</td><td class="r">0.3–3</td><td>Formant sharpness.</td></tr>
+    <tr><td>Formant</td><td class="r">±12 st</td><td>Shifts all formants: smaller or bigger "mouth".</td></tr>
+    <tr><td>Aanzet / Uitklank</td><td class="r">attack / release</td><td>Envelope for notes played from keys.</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2><span class="n">08</span>G — the Dutch g</h2>
+  <p>The throaty Dutch <i>g</i>/<i>ch</i> (as in <i>goed</i>, <i>acht</i>) as an instrument: filtered noise with a pitched resonance. Turn <b>NL – BE</b> from the hard, rasping Holland g to the soft, voiced Flemish g.</p>
+  <table>
+    <tr><th>Control</th><th>Range</th><th>What it does</th></tr>
+    <tr><td>Niveau</td><td class="r">0–1.5</td><td>Level.</td></tr>
+    <tr><td>NL – BE</td><td class="r">0–1</td><td>Holland <span class="ipa">/x/</span> (left) to Flemish <span class="ipa">/ɣ/</span> (right).</td></tr>
+    <tr><td>Rasp</td><td class="r">0–1</td><td>Uvular scrape, the "throat-clearing" part.</td></tr>
+    <tr><td>Stem</td><td class="r">0–1</td><td>Voicing: adds a buzz under the friction.</td></tr>
+    <tr><td>Resonantie ×</td><td class="r">1–24</td><td>Which harmonic of the played note the resonance sits on.</td></tr>
+    <tr><td>Uitklank</td><td class="r">0.01–2 s</td><td>Release.</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2><span class="n">09</span>Orca bridge</h2>
+  <p>Spreekbuis listens for UDP messages on <code>127.0.0.1:49162</code> (change the port in the ORCA panel). Orca's <code>;</code> operator sends whatever text follows it when banged, so you can sequence Dutch from an Orca grid. The panel shows whether the port is connected.</p>
+  <table>
+    <tr><th>Message</th><th>Effect</th></tr>
+    <tr><td><code>;fiets</code></td><td>Speaks the word <i>fiets</i>, if it's in your bank.</td></tr>
+    <tr><td><code>;g</code></td><td>Fires the g generator.</td></tr>
+    <tr><td><code>;g7</code></td><td>Fires the g, pitched up 7 semitones (base-36 digit: 0–9, a–z).</td></tr>
+    <tr><td><code>;vui</code></td><td>Plays the vowel pad on that vowel. Names: <code>i ie y uu u oe e ee eu o oo a aa ij ei ui ou au uh</code>.</td></tr>
+    <tr><td><code>;1a</code></td><td>Anything else is read as a base-36 number and plays that item from your bank.</td></tr>
+  </table>
+  <div class="box"><b>Note.</b>A word that isn't in your bank is read as a base-36 number instead, so it plays some other item. Turn on <b>Alle items</b> if you want every course word available to Orca.</div>
+  <p>In Orca, set the UDP port to 49162 (or run Orca's UDP output to that port), write e.g. <code>;fiets</code> next to a clock, and every bang says the word.</p>
+</section>
+
+<section>
+  <h2><span class="n">10</span>Keys, MIDI and audio routing</h2>
+  <table>
+    <tr><th>Toetsen</th><th>MIDI notes play…</th></tr>
+    <tr><td>Words</td><td>An item from your bank (note number picks the item).</td></tr>
+    <tr><td>Vowel</td><td>The vowel pad at that pitch.</td></tr>
+    <tr><td>G</td><td>The g generator at that pitch.</td></tr>
+    <tr><td>Words + Vowel</td><td>Both.</td></tr>
+    <tr><td>Everything</td><td>Words, vowel pad and g together.</td></tr>
+  </table>
+  <ul>
+    <li><b>MIDI out</b> (VST3): word-onset notes from the loop. AU instruments can't send MIDI in most hosts.</li>
+    <li><b>Audio input</b>: an optional stereo side-chain bus feeds the vowel pad when its source is <i>Input</i>. In Ableton, choose the source track in the plug-in's side-chain menu.</li>
+    <li><b>Master</b> and <b>Ruimte</b> (space, a reverb) in the ORCA panel apply to everything.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="n">11</span>Presets</h2>
+  <table>
+    <tr><th>Preset</th><th>What it is</th></tr>
+    <tr><td>Init</td><td>Default settings: loop on, one call bar, one answer bar.</td></tr>
+    <tr><td>Les in de loop</td><td>Pure study: words of the current lesson with answer gaps.</td></tr>
+    <tr><td>Zinnen en echo</td><td>Sentences over two bars with long gaps, plus a sparse cloud and reverb.</td></tr>
+    <tr><td>Fluisterwolk</td><td>Dense cloud of short grains with many whispered translations.</td></tr>
+    <tr><td>Droomstaat</td><td>Slow, low cloud of long grains over an ou/au vowel drone. Keys play words and vowels.</td></tr>
+    <tr><td>Ui-drone</td><td>The ui diphthong as a breathy drone.</td></tr>
+    <tr><td>Klinkerkoor</td><td>Vowel choir on your input plus saw, gliding through ij/ei.</td></tr>
+    <tr><td>Harde g</td><td>Short, rasping Holland g on the keys: percussion.</td></tr>
+    <tr><td>Zachte g</td><td>Soft, voiced Flemish g with a longer tail.</td></tr>
+    <tr><td>Orca-woorden</td><td>Everything off except what Orca and the keys trigger.</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2><span class="n">12</span>Files, voices and limits</h2>
+  <table>
+    <tr><th>What</th><th>Where</th></tr>
+    <tr><td>Plug-ins</td><td><code>~/Library/Audio/Plug-Ins/VST3/Spreekbuis.vst3</code>, <code>…/Components/Spreekbuis.component</code></td></tr>
+    <tr><td>Voice bank</td><td><code>~/Library/Application Support/Spreekbuis/voice/</code> (about 300 MB)</td></tr>
+    <tr><td>Play log</td><td><code>~/Library/Application Support/Spreekbuis/plays.json</code></td></tr>
+    <tr><td>Tongval progress (read)</td><td><code>~/Library/Application Support/Tongval/progress.json</code></td></tr>
+    <tr><td>Source</td><td><code>~/spreekbuis</code></td></tr>
+  </table>
+  <h3>Better voices</h3>
+  <p>The bank is recorded with the best Dutch voice installed when it was made. To upgrade: System Settings → Accessibility → Spoken Content → System voice → Manage Voices → Dutch → download <b>Xander (Enhanced)</b> or <b>Claire (Premium)</b>. Then run <code>~/spreekbuis/tools/render.sh --force</code> and press <b>Herlaad</b>. Add <code>--stories</code> to also record the Tongval stories.</p>
+  <h3>Known limits</h3>
+  <ul>
+    <li>The loop starts items at the start of an audio block, not sample-accurately; bars follow the host's time signature (4/4 when free-running).</li>
+    <li>MIDI out accents the first word of each item, not the true stressed syllable.</li>
+    <li>Tongval reads the play log only when it launches.</li>
+    <li>With <b>Alle items</b> on, each instance holds about 250 MB of audio in memory.</li>
+  </ul>
+</section>
+
+</body></html>
