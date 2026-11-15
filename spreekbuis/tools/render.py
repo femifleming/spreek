@@ -9,21 +9,34 @@ Output (the folder Spreekbuis reads):
     Linux    ~/.config/Spreekbuis/voice[-female]/
 with nl/<id>.wav (48 kHz mono 16-bit), en/<id>.wav (the English gloss) and manifest.json (word onsets).
 
-Engines, best first:
+Engines, best first (chosen per language; --engine forces one):
+    piper    neural voices (VITS), the same on every OS: nl_NL-pim-medium (the man), nl_BE-nathalie-medium (the woman),
+             en_US-lessac-medium for the English glosses. `python3 tools/render.py --setup-piper` makes a venv with
+             piper-tts in the data folder and downloads those three voices from the rhasspy/piper-voices Hugging Face
+             repo (~200 MB). An existing install is reused: PIPER_PYTHON=<python with piper>, PIPER_VOICES=<dir with
+             .onnx>, PIPER_MODEL=<one .onnx>, the Tongval venv (~/tongval/tools/venv + tools/piper-voices), a `piper`
+             binary on PATH, or ~/.local/share/piper.
     macOS    `say` with the best installed Dutch voice (Premium > Enhanced > compact; install better ones in
-             System Settings > Accessibility > Spoken Content > Manage Voices > Dutch). On macOS tools/render.sh
-             prefers tools/render.swift, which gets exact word onsets from the speech engine.
+             System Settings > Accessibility > Spoken Content > Manage Voices > Dutch). With Apple voices,
+             tools/render.sh prefers tools/render.swift, which gets exact word onsets from the speech engine.
     Windows  PowerShell / System.Speech (SAPI) with an installed Dutch voice (Settings > Time & language >
              Speech > Manage voices > add Dutch).
-    Linux    piper (set PIPER_MODEL=/path/nl_NL-...onnx, or put a nl_* model in ~/.local/share/piper) or espeak-ng -v nl.
+    Linux    espeak-ng -v nl.
 Word onsets are estimated from the audio (silence between words); the Swift renderer's are exact.
 Without any engine the plug-in still speaks: it has a built-in formant voice.
 """
-import argparse, json, os, re, subprocess, sys, shutil, struct, wave, tempfile, math
+import argparse, json, os, re, subprocess, sys, shutil, struct, wave, tempfile, math, urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
+
+
+def data_root():
+    if os.environ.get("SPREEKBUIS_DATA_DIR"): return Path(os.environ["SPREEKBUIS_DATA_DIR"])
+    if sys.platform == "darwin": return Path.home() / "Library" / "Application Support" / "Spreekbuis"
+    if sys.platform.startswith("win"): return Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming")) / "Spreekbuis"
+    return Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "Spreekbuis"
 
 
 def out_root(female):
@@ -201,21 +214,75 @@ $syn.Dispose()
         jf.unlink(); sf.unlink()
 
 
+PIPER_VOICES = {   # name: (hugging face path, gender)   https://huggingface.co/rhasspy/piper-voices
+    "nl_NL-pim-medium": ("nl/nl_NL/pim/medium", "m"),
+    "nl_BE-nathalie-medium": ("nl/nl_BE/nathalie/medium", "f"),
+    "en_US-lessac-medium": ("en/en_US/lessac/medium", "f"),
+}
+PIPER_GENDER = { "pim": "m", "ronnie": "m", "rdh": "m", "nathalie": "f", "lessac": "f", "amy": "f", "ryan": "m", "joe": "m", "kathleen": "f" }
+
+
 class Piper(Engine):
+    """Piper neural voices through a Python that has piper-tts (one process for all clips), or the piper binary."""
     name = "piper"
     def __init__(self):
-        self.models = {}
-        cands = []
-        if os.environ.get("PIPER_MODEL"): cands.append(Path(os.environ["PIPER_MODEL"]))
-        for d in (Path.home() / ".local" / "share" / "piper", Path.home() / "piper", Path("/usr/share/piper-voices")):
-            if d.is_dir(): cands += sorted(d.rglob("*.onnx"))
-        for m in cands:
-            lang = m.name.split("-")[0].replace("_", "-")
-            self.models.setdefault(lang, m)
+        self.python = None; self.binary = shutil.which("piper"); self.models = {}
+        for cand in [os.environ.get("PIPER_PYTHON"), data_root() / "piper" / "venv" / ("Scripts/python.exe" if sys.platform.startswith("win") else "bin/python"),
+                     Path.home() / "tongval" / "tools" / "venv" / "bin" / "python", sys.executable]:
+            if not cand: continue
+            cand = Path(cand)
+            if cand.exists() and subprocess.run([str(cand), "-I", "-c", "import piper"], capture_output=True).returncode == 0:
+                self.python = cand; break
+        dirs = []
+        if os.environ.get("PIPER_MODEL"): dirs.append(Path(os.environ["PIPER_MODEL"]).parent)
+        if os.environ.get("PIPER_VOICES"): dirs.append(Path(os.environ["PIPER_VOICES"]))
+        dirs += [data_root() / "piper-voices", Path.home() / "tongval" / "tools" / "piper-voices",
+                 Path.home() / ".local" / "share" / "piper", Path.home() / "piper", Path("/usr/share/piper-voices")]
+        for d in dirs:
+            if d.is_dir():
+                for m in sorted(d.rglob("*.onnx")):
+                    if m.with_name(m.name + ".json").exists(): self.models.setdefault(m.stem, m)
+    def available(self): return (self.python is not None or self.binary is not None) and bool(self.models)
     def voices(self):
-        return [(str(m), lang, "?") for lang, m in self.models.items()]
-    def speak(self, voice, text, out):
-        subprocess.run(["piper", "--model", voice, "--output_file", str(out)], input=text.encode("utf-8"), check=True, capture_output=True)
+        out = []
+        for stem, m in self.models.items():
+            lang = stem.split("-")[0].replace("_", "-")
+            who = stem.split("-")[1] if "-" in stem else ""
+            out.append((stem, lang, PIPER_GENDER.get(who, "?")))
+        return out
+    def speak_many(self, jobs):   # [(voice stem, text, out)]
+        js = [{"model": str(self.models[v]), "text": t, "out": str(o)} for v, t, o in jobs]
+        if self.python:
+            jf = Path(tempfile.mkstemp(suffix=".json")[1]); jf.write_text(json.dumps(js), encoding="utf-8")
+            subprocess.run([str(self.python), "-I", str(HERE / "piper_render.py"), str(jf)], check=True)
+            jf.unlink()
+        else:
+            for j in js:
+                subprocess.run([self.binary, "--model", j["model"], "--output_file", j["out"]], input=j["text"].encode("utf-8"), check=True, capture_output=True)
+
+
+def setup_piper():
+    """A venv with piper-tts in the data folder (unless a Python with piper exists already) and the three voices."""
+    root = data_root(); root.mkdir(parents=True, exist_ok=True)
+    p = Piper()
+    if p.python is None:
+        venv = root / "piper" / "venv"
+        print("creating %s and installing piper-tts" % venv)
+        subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True)
+        py = venv / ("Scripts/python.exe" if sys.platform.startswith("win") else "bin/python")
+        subprocess.run([str(py), "-m", "pip", "install", "-q", "piper-tts"], check=True)
+    else:
+        print("piper found in %s" % p.python)
+    vd = root / "piper-voices"; vd.mkdir(exist_ok=True)
+    for name, (hf, _) in PIPER_VOICES.items():
+        if name in p.models: print("have %s (%s)" % (name, p.models[name])); continue
+        for ext in (".onnx", ".onnx.json"):
+            url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/%s/%s%s" % (hf, name, ext)
+            dst = vd / (name + ext)
+            if dst.exists(): continue
+            print("downloading %s" % url)
+            urllib.request.urlretrieve(url, dst)
+    print("piper voices in %s" % vd)
 
 
 class Espeak(Engine):
@@ -226,14 +293,16 @@ class Espeak(Engine):
         subprocess.run(["espeak-ng", "-v", voice, "-s", "150", "-w", str(out), text], check=True, capture_output=True)
 
 
-def pick_engine(name):
-    if name in ("auto", "say") and sys.platform == "darwin" and shutil.which("say"): return Say()
-    if name in ("auto", "sapi") and sys.platform.startswith("win") and shutil.which("powershell"): return Sapi()
-    if name in ("auto", "piper") and shutil.which("piper"):
+def engines(name):
+    """Candidate engines in order of preference (best first), limited to one with --engine."""
+    out = []
+    if name in ("auto", "piper"):
         p = Piper()
-        if any(l.startswith("nl") for l in p.models): return p
-    if name in ("auto", "espeak") and shutil.which("espeak-ng"): return Espeak()
-    return None
+        if p.available(): out.append(p)
+    if name in ("auto", "say") and sys.platform == "darwin" and shutil.which("say"): out.append(Say())
+    if name in ("auto", "sapi") and sys.platform.startswith("win") and shutil.which("powershell"): out.append(Sapi())
+    if name in ("auto", "espeak") and shutil.which("espeak-ng"): out.append(Espeak())
+    return out
 
 
 def choose(voices, prefix, female, want_name=None):
@@ -247,6 +316,7 @@ def choose(voices, prefix, female, want_name=None):
         if v[1] in ("nl-NL", "en-US"): s += 100   # Netherlands Dutch over Flemish, US English over the others
         if "Premium" in n: s += 30
         elif "Enhanced" in n: s += 20
+        if n == ("nl_BE-nathalie-medium" if female else "nl_NL-pim-medium"): s += 200   # the bundle's two Piper voices (nathalie is nl-BE)
         if "medium" in n or "high" in n: s += 10   # piper model quality
         if v[2] == ("f" if female else "m"): s += 5
         return s
@@ -257,17 +327,30 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--female", action="store_true"); ap.add_argument("--force", action="store_true"); ap.add_argument("--stories", action="store_true")
     ap.add_argument("--engine", default="auto"); ap.add_argument("--voice"); ap.add_argument("--items")
+    ap.add_argument("--setup-piper", action="store_true", help="install piper-tts in a venv and download the Piper voices")
+    ap.add_argument("--probe", action="store_true", help="print the engines that would be used and exit (0 = Piper)")
     a = ap.parse_args()
-    eng = pick_engine(a.engine)
-    if eng is None:
-        print("no speech engine found (macOS: say; Windows: PowerShell/System.Speech; Linux: piper or espeak-ng).\n"
+    if a.setup_piper: setup_piper(); return 0
+    cands = engines(a.engine)
+    if not cands:
+        print("no speech engine found (piper: tools/render.py --setup-piper; macOS: say; Windows: PowerShell/System.Speech; Linux: espeak-ng).\n"
               "Spreekbuis still speaks with its built-in formant voice."); return 1
-    voices = eng.voices()
-    nl = choose(voices, "nl", a.female, a.voice)
-    en = choose(voices, "en", a.female) or choose(voices, "en", not a.female)
+    # the Dutch voice from the best engine that has one; the English gloss from the best engine that has English
+    nl = en = None; nl_eng = en_eng = None
+    for e in cands:
+        vs = e.voices()
+        if nl is None:
+            v = choose(vs, "nl", a.female, a.voice)
+            if v: nl, nl_eng = v, e
+        if en is None:
+            v = choose(vs, "en", a.female) or choose(vs, "en", not a.female)
+            if v: en, en_eng = v, e
+    if a.probe:
+        print("Dutch: %s / %s; English: %s / %s" % (nl_eng.name if nl_eng else "-", nl[0] if nl else "-", en_eng.name if en_eng else "-", en[0] if en else "-"))
+        return 0 if nl_eng and nl_eng.name == "piper" else 2
     if nl is None:
-        print("%s: no Dutch voice installed (see the top of this file)." % eng.name); return 1
-    print("engine %s - Dutch voice: %s - English: %s" % (eng.name, nl[0], en[0] if en else "(none)"))
+        print("%s: no Dutch voice installed (see the top of this file)." % cands[0].name); return 1
+    print("Dutch voice: %s (%s) - English: %s (%s)" % (nl[0], nl_eng.name, en[0] if en else "(none)", en_eng.name if en_eng else "-"))
     items = load_items(a.items)
     root = out_root(a.female)
     (root / "nl").mkdir(parents=True, exist_ok=True); (root / "en").mkdir(parents=True, exist_ok=True)
@@ -276,7 +359,7 @@ def main():
     if not a.force and manifest.exists():
         try:
             j = json.loads(manifest.read_text(encoding="utf-8"))
-            if j.get("voice") == eng.name + ":" + nl[0]: old = {i["key"]: i for i in j.get("items", [])}
+            if j.get("voice") == nl_eng.name + ":" + nl[0]: old = {i["key"]: i for i in j.get("items", [])}
         except Exception: pass
     todo = []
     out_items = []
@@ -289,18 +372,17 @@ def main():
         todo.append((it, fid, nlf, enf))
     print("%d items, %d to render" % (len(items), len(todo)))
     tmp = Path(tempfile.mkdtemp(prefix="spreekbuis-"))
-    # raw renders (one process for all jobs where the engine allows it)
-    jobs = []
-    for it, fid, nlf, enf in todo:
-        jobs.append((nl[0], it["nl"], tmp / (fid + "-nl.wav")))
-        if en: jobs.append((en[0], it["en"], tmp / (fid + "-en.wav")))
-    if isinstance(eng, Sapi):
-        for i in range(0, len(jobs), 200): eng.speak_many(jobs[i:i + 200]); print("  %d / %d" % (min(i + 200, len(jobs)), len(jobs)))
-    else:
-        for i, (v, t, o) in enumerate(jobs):
-            try: eng.speak(v, t, o)
-            except subprocess.CalledProcessError as e: print("  (failed) %s: %s" % (t, e))
-            if (i + 1) % 100 == 0: print("  %d / %d" % (i + 1, len(jobs)))
+    # raw renders, one engine at a time (one process for all jobs where the engine allows it)
+    def run_jobs(eng, jobs):
+        if hasattr(eng, "speak_many"):
+            for i in range(0, len(jobs), 400): eng.speak_many(jobs[i:i + 400]); print("  %s %d / %d" % (eng.name, min(i + 400, len(jobs)), len(jobs)))
+        else:
+            for i, (v, t, o) in enumerate(jobs):
+                try: eng.speak(v, t, o)
+                except subprocess.CalledProcessError as e: print("  (failed) %s: %s" % (t, e))
+                if (i + 1) % 100 == 0: print("  %s %d / %d" % (eng.name, i + 1, len(jobs)))
+    run_jobs(nl_eng, [(nl[0], it["nl"], tmp / (fid + "-nl.wav")) for it, fid, nlf, enf in todo])
+    if en: run_jobs(en_eng, [(en[0], it["en"], tmp / (fid + "-en.wav")) for it, fid, nlf, enf in todo])
     # convert + onsets
     for it, fid, nlf, enf in todo:
         src = tmp / (fid + "-nl.wav")
@@ -315,7 +397,7 @@ def main():
         rec = dict(it); rec.update(file="nl/%s.wav" % fid, en_file="en/%s.wav" % fid, onsets=ons, frames=len(x))
         out_items.append(rec)
     shutil.rmtree(tmp, ignore_errors=True)
-    manifest.write_text(json.dumps({"version": 1, "rate": 48000, "voice": eng.name + ":" + nl[0], "voiceName": nl[0].replace(" (", " (").split(" (")[0] + (" (" + nl[0].split(" (", 1)[1] if " (" in nl[0] else ""),
+    manifest.write_text(json.dumps({"version": 1, "rate": 48000, "voice": nl_eng.name + ":" + nl[0], "voiceName": nl[0] + (" (Piper)" if nl_eng.name == "piper" else ""),
                                     "enVoice": en[0] if en else "", "items": out_items}, ensure_ascii=False, sort_keys=True), encoding="utf-8")
     print("done: %d items -> %s" % (len(out_items), root))
     return 0

@@ -216,12 +216,13 @@
     <tr><td>Plug-ins (Windows)</td><td><code>C:\Program Files\Common Files\VST3\Spreekbuis.vst3</code>, <code>Spreekbuis.exe</code> anywhere</td></tr>
     <tr><td>Plug-ins (Linux)</td><td><code>~/.vst3/Spreekbuis.vst3</code>, <code>Spreekbuis</code> standalone anywhere</td></tr>
     <tr><td>Data folder</td><td><code>~/Library/Application Support/Spreekbuis/</code> (macOS), <code>%APPDATA%\Spreekbuis\</code> (Windows), <code>~/.config/Spreekbuis/</code> (Linux)</td></tr>
-    <tr><td>Voice bank</td><td><code>voice/</code>, <code>voice-female/</code> in the data folder (about 300 MB each); <code>voice-builtin/</code> for the built-in voice</td></tr>
+    <tr><td>Voice bank</td><td><code>voice/</code>, <code>voice-female/</code> in the data folder (about 300 MB each); <code>voice-builtin/</code> for the built-in voice; <code>piper/</code>, <code>piper-voices/</code> for the Piper install</td></tr>
     <tr><td>Play log</td><td><code>plays.json</code> in the data folder</td></tr>
     <tr><td>Tongval progress (read)</td><td><code>~/Library/Application Support/Tongval/progress.json</code> (macOS)</td></tr>
     <tr><td>Source</td><td><a href="https://github.com/femifleming/spreek">github.com/femifleming/spreek</a> (spreekbuis/)</td></tr>
   </table>
   <h3>Rendering and better voices</h3>
+  <p><b>Neural voices (any OS, best):</b> <code>python3 spreekbuis/tools/render.py --setup-piper</code> once installs <a href="https://github.com/rhasspy/piper">Piper</a> (a venv with <code>piper-tts</code>) and downloads the voices <b>nl_NL-pim-medium</b> (the man), <b>nl_BE-nathalie-medium</b> (the woman) and <b>en_US-lessac-medium</b> (the English glosses) from the rhasspy/piper-voices Hugging Face repo into the data folder (~200 MB). From then on <code>render.sh</code> prefers Piper over the system voices; an existing Piper (the Tongval venv on this Mac, <code>PIPER_PYTHON</code>, <code>PIPER_VOICES</code>, a <code>piper</code> binary) is reused.</p>
   <p><b>macOS:</b> <code>spreekbuis/tools/render.sh</code> records every item with the best installed Dutch voice (Premium, then Enhanced, then the compact one) and exact word onsets. To upgrade the voice: System Settings → Accessibility → Spoken Content → System voice → Manage Voices → Dutch → download <b>Xander (Enhanced)</b> or <b>Claire (Premium)</b>. Then run <code>render.sh --force</code> and press <b>Herlaad</b>. <code>--female</code> renders the woman's bank (Stem: Vrouw), <code>--stories</code> adds the Tongval stories.</p>
   <p><b>Windows:</b> <code>python tools\render.py</code> uses the Windows voices (Settings → Time &amp; language → Speech → Manage voices → add Dutch). <b>Linux:</b> the same script uses <a href="https://github.com/rhasspy/piper">piper</a> (set <code>PIPER_MODEL</code> to a Dutch <code>.onnx</code> model) or <code>espeak-ng -v nl</code>. On these platforms word onsets are estimated from the audio.</p>
   <h3>Known limits</h3>

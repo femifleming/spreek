@@ -15,6 +15,9 @@ Two Dutch speech instruments in one bundle, VST3 / AU / standalone for macOS, Wi
 **Install (macOS):** `brew tap femifleming/tap && brew install --cask femifleming/tap/spreekbuis femifleming/tap/spraakmaker` —
 or download `spreek-macOS.zip`, `spreek-Windows.zip` or `spreek-Linux.tar.gz` from the
 [releases](https://github.com/femifleming/spreek/releases) (both plug-ins, the apps and the manuals in every download).
+**Neural Dutch voices for Spreekbuis** (any OS, needs Python 3): `python3 Spreekbuis/tools/render.py --setup-piper` once (installs
+[Piper](https://github.com/rhasspy/piper) and the pim / nathalie / lessac voices), then `Spreekbuis/tools/render.sh` (and
+`--female`) to record the course; see *The voice* below.
 
 **Manuals:** [Spreekbuis Manual.pdf](docs/Spreekbuis%20Manual.pdf) · [Spraakmaker Manual.pdf](docs/Spraakmaker%20Manual.pdf)
 (sources: `spreekbuis/docs/manual.html`, `spraakmaker/docs/manual.html`; `scripts/manuals.sh` re-prints them with Chrome).
@@ -30,14 +33,15 @@ vocoder), **Klinker** (a formant filter steered by the Dutch vowel chart i y u �
 g/ch, hard Holland /x/ to soft Flemish /ɣ/), **Orca** (UDP on 127.0.0.1:49162: `;fiets` speaks a word, `;g7` fires the g,
 `;vui` hits a vowel) and **Toetsen** (MIDI notes play words, the vowel, the g or everything).
 
-**The voice.** Spreekbuis plays recorded audio of every course item. Render that voice bank once with the system's
-text-to-speech, `spreekbuis/tools/render.sh` (`--female` for the woman's bank, `--force` to redo everything):
+**The voice.** Spreekbuis plays recorded audio of every course item. Render that voice bank once with
+`spreekbuis/tools/render.sh` (`--female` for the woman's bank, `--force` to redo everything). Engines, best first:
 
 | | engine | voices |
 |---|---|---|
-| macOS | `tools/render.swift` (AVSpeechSynthesizer, exact word onsets) | the best installed Dutch voice: Premium, then Enhanced, then compact. Install better ones in System Settings → Accessibility → Spoken Content → Manage Voices → Dutch (Xander Enhanced, Claire Premium) |
+| all | **Piper** neural voices (`python3 tools/render.py --setup-piper`: a venv with `piper-tts` plus the voices from [rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices), ~200 MB, into the data folder; an existing install is reused: `PIPER_PYTHON`, `PIPER_VOICES`, the Tongval venv, a `piper` binary) | `nl_NL-pim-medium` (the man), `nl_BE-nathalie-medium` (the woman), `en_US-lessac-medium` for the English glosses |
+| macOS | `tools/render.swift` (AVSpeechSynthesizer, exact word onsets) | the best installed Apple Dutch voice: Premium, then Enhanced, then compact. Install better ones in System Settings → Accessibility → Spoken Content → Manage Voices → Dutch (Xander Enhanced, Claire Premium) |
 | Windows | `python tools\render.py` (System.Speech / SAPI) | an installed Dutch voice (Settings → Time & language → Speech → Manage voices) |
-| Linux | `python3 tools/render.py` | [piper](https://github.com/rhasspy/piper) with a Dutch model (`PIPER_MODEL=…/nl_NL-….onnx`), else `espeak-ng -v nl` |
+| Linux | `python3 tools/render.py` | `espeak-ng -v nl` |
 
 Without a rendered bank the plug-in is never silent: it speaks every item with the **built-in formant voice** it shares with
 Spraakmaker (made once into `voice-builtin/` on first use). Data folder: `~/Library/Application Support/Spreekbuis` (macOS),
