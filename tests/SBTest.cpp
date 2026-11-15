@@ -144,6 +144,28 @@ int main(int argc, char** argv) {
         std::cout << (ok ? "PASS " : "FAIL ") << "orca over udp: listening " << p->orcaListening.load() << ", packets " << p->orcaPackets.load() << ", rms " << r.rms << "\n";
         if (!ok) ++fails;
     }
+    // ---- Klinker shaping the words and the cloud (Bron: Loop, Wolk, Loop + Wolk)
+    {
+        auto run = [&](int src, bool vowelOn, const char* layer) {
+            auto p = fresh([&](auto& p) { setP(p, layer, 1); setP(p, "loop_bpm", 160); setP(p, "loop_whisper", 0); setP(p, "cloud_density", 20);
+                                           setP(p, "vowel_on", vowelOn ? 1.0f : 0.0f); setP(p, "vowel_src", (float) src); setP(p, "vowel_glide", 1); setP(p, "vowel_rate", 2); });
+            juce::AudioBuffer<float> all(2, 512 * 300), buf(2, 512);
+            for (int k = 0; k < 300; ++k) { buf.clear(); juce::MidiBuffer m; p->processBlock(buf, m); for (int c = 0; c < 2; ++c) all.copyFrom(c, k * 512, buf, c, 0, 512); }
+            return all;
+        };
+        auto compare = [&](const char* name, int src, const char* layer) {
+            auto dry = run(src, false, layer), shaped = run(src, true, layer);
+            double d = 0, e = 0, s2 = 0;
+            for (int c = 0; c < 2; ++c) for (int i = 0; i < dry.getNumSamples(); ++i) { const double x = dry.getSample(c, i), y = shaped.getSample(c, i); d += (x - y) * (x - y); e += x * x; s2 += y * y; }
+            const double rmsShaped = std::sqrt(s2 / (2.0 * dry.getNumSamples())), moved = std::sqrt(d / std::max(1e-12, e));
+            const bool ok = rmsShaped > 1e-3 && moved > 0.3;
+            std::cout << (ok ? "PASS " : "FAIL ") << name << "  rms " << rmsShaped << " (dry " << std::sqrt(e / (2.0 * dry.getNumSamples())) << "), differs from the dry layer by " << moved << "\n";
+            if (!ok) ++fails;
+        };
+        compare("klinker shapes the loop (Bron Loop)", 4, "loop_on");
+        compare("klinker shapes the cloud (Bron Wolk)", 5, "cloud_on");
+        compare("klinker shapes both (Bron Loop + Wolk)", 6, "loop_on");
+    }
     // ---- the voice switch: the woman's words and a higher vowel chart
     {
         // the chart pressed: the spectral centroid of a second of it (the woman's is higher: pitch and formants)

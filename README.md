@@ -12,7 +12,8 @@ Dutch as an instrument. A VST3/AU/Standalone instrument that plays the words and
 - **Wolk** (cloud) — granular cloud of the words you know: density, grain size, scatter, position, pitch, stereo,
   reverse, and *translation grains*: English glosses run through a 12-band noise vocoder (whisper).
 - **Klinker** — formant filter whose XY pad is the Dutch vowel chart (i y u ɪ ʏ e ø o ə ɔ ɛ a ɑ), with diphthong
-  glides ɛi (ij/ei), œy (ui), ʌu (ou/au). Source: saw, noise, the sidechain input, or saw + input. Click or drag the chart
+  glides ɛi (ij/ei), œy (ui), ʌu (ou/au). Source: saw, noise, the sidechain input, saw + input, or **Loop / Wolk / Loop + Wolk** — the words and the grain cloud
+  heard through the vowel chart (an insert, at the same loudness; the whispered translations stay dry). Click or drag the chart
   to hear it; notes play it when *Toetsen* includes Klinker (a hint on the chart says when they don't). Live doesn't send
   audio into instruments, so *Input* is silent there (the chart says so).
 - **Stem** (Man / Vrouw, top bar) — the voice of the words (a second rendered bank) and the vowel chart (female formants,

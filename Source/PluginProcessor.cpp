@@ -84,7 +84,7 @@ APVTS::ParameterLayout SpreekbuisProcessor::layout() {
     f("vowel_x", "Front-back", 0, 1, 0.35f); f("vowel_y", "Close-open", 0, 1, 1.0f);
     c("vowel_glide", "Glide", { "Off", "\xc9\x9bi (ij/ei)", "\xc5\x93y (ui)", "\xca\x8cu (ou/au)" }, 0);
     f("vowel_rate", "Glide rate", 0.02f, 8, 0.3f, 0.5f);
-    c("vowel_src", "Source", { "Saw", "Noise", "Input", "Saw + Input" }, 0);
+    c("vowel_src", "Source", { "Saw", "Noise", "Input", "Saw + Input", "Loop", "Wolk", "Loop + Wolk" }, 0);   // (new ones at the end: old sessions keep theirs)
     f("vowel_noise", "Breath", 0, 1, 0.15f); f("vowel_q", "Resonance", 0.3f, 3, 1);
     f("vowel_shift", "Formant shift", -12, 12, 0);
     f("vowel_attack", "Attack", 0.001f, 2, 0.02f, 0.2f); f("vowel_release", "Release", 0.01f, 4, 0.4f, 0.5f);
@@ -493,15 +493,20 @@ void SpreekbuisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::M
             pendingOffs.erase(std::remove_if(pendingOffs.begin(), pendingOffs.end(), [](auto& p) { return p.samples <= 0; }), pendingOffs.end());
 
         float l = 0, r = 0, wIn = 0;
+        float loopL = 0, loopR = 0;   // the spoken words (loop + keys / Orca), before deciding where they go
         if (b) {
-            float lv = loopVoice.tick() * lLoop; l += lv; r += lv;
+            float lv = loopVoice.tick() * lLoop; loopL += lv; loopR += lv;
             wIn += loopWhisper.tick();
             for (auto& s : shots) {
                 if (!s.active) continue;
                 float v = s.tick() * lLoop;
-                l += v * (1 - s.pan); r += v * (1 + s.pan);
+                loopL += v * (1 - s.pan); loopR += v * (1 + s.pan);
             }
         }
+        // Klinker can take the words and / or the cloud and shape them with the vowel chart (an insert: they're heard through it)
+        const bool loopToVowel = vowelOn && (src == 4 || src == 6), cloudToVowel = vowelOn && (src == 5 || src == 6);
+        float vowelFeed = 0;
+        if (loopToVowel) vowelFeed += 0.5f * (loopL + loopR); else { l += loopL; r += loopR; }
 
         // ---- word cloud
         if (cloudOn && b && density > 0.01f) {
@@ -539,7 +544,7 @@ void SpreekbuisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::M
             if (g.whisper) wIn += v * 0.7f;
             else { cl += v * g.panL; cr += v * g.panR; }
         }
-        l += cl * lCloud; r += cr * lCloud;
+        if (cloudToVowel) vowelFeed += 0.5f * (cl + cr) * lCloud; else { l += cl * lCloud; r += cr * lCloud; }
 
         // ---- whisper bus (translations)
         {
@@ -568,7 +573,8 @@ void SpreekbuisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::M
             const float gateNow = (vowelOn || padHeldNow || orcaVowelHold > 0) ? vowel.gate : 0.0f;
             vowel.env += (gateNow > vowel.env ? vAtk : vRel) * (gateNow - vowel.env);
             if (synthSrc) srcSig += vowel.osc(src == 1 ? 1.0f : vNoise) * vowel.env;
-            if (src >= 2) srcSig += inMono * 2.0f;
+            if (src == 2 || src == 3) srcSig += inMono * 2.0f;
+            if (src >= 4) srcSig += vowelFeed * 2.0f;
             float v = vowel.filter(srcSig, f1s, f2s, f3s, vQ) * 0.5f * lVow;
             l += v; r += v;
         }

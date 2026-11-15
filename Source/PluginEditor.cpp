@@ -193,7 +193,12 @@ struct VowelPad : juce::Component {
         juce::String hint;
         const int src = (int) *p.apvts.getRawParameterValue("vowel_src");
         const bool on = *p.apvts.getRawParameterValue("vowel_on") > 0.5f;
+        const bool loopOn = *p.apvts.getRawParameterValue("loop_on") > 0.5f, cloudOn = *p.apvts.getRawParameterValue("cloud_on") > 0.5f;
         if (src == 2 && p.inputLevel.load() < 1.0e-4f) hint = "bron Ingang: er komt geen audio binnen";
+        else if (src == 4 && !loopOn) hint = "bron Loop: zet LOOP aan";
+        else if (src == 5 && !cloudOn) hint = "bron Wolk: zet WOLK aan";
+        else if (src == 6 && !loopOn && !cloudOn) hint = "bron Loop + Wolk: zet ze aan";
+        else if (src >= 4 && on) hint = "";
         else if (on && !p.notesReachVowel()) hint = "noten: zet Toetsen op Klinker";
         else if (!on) hint = "klik of sleep om te horen";
         if (hint.isNotEmpty()) {
