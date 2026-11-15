@@ -13,16 +13,19 @@ Look::Look() {
     setColour(juce::Label::textColourId, ink);
     setColour(juce::ComboBox::textColourId, ink);
     setColour(juce::ComboBox::backgroundColourId, card);
-    setColour(juce::ComboBox::outlineColourId, ink);
+    setColour(juce::ComboBox::outlineColourId, soft);
     setColour(juce::ComboBox::arrowColourId, ink);
     setColour(juce::PopupMenu::backgroundColourId, card);
     setColour(juce::PopupMenu::textColourId, ink);
-    setColour(juce::PopupMenu::highlightedBackgroundColourId, ink);
-    setColour(juce::PopupMenu::highlightedTextColourId, paper);
+    setColour(juce::PopupMenu::highlightedBackgroundColourId, orange);
+    setColour(juce::PopupMenu::highlightedTextColourId, dark);
     setColour(juce::TextEditor::backgroundColourId, card);
     setColour(juce::TextEditor::textColourId, ink);
-    setColour(juce::TextEditor::outlineColourId, ink);
+    setColour(juce::TextEditor::outlineColourId, soft);
     setColour(juce::TextEditor::focusedOutlineColourId, orange);
+    setColour(juce::TextEditor::highlightColourId, orange.withAlpha(0.4f));
+    setColour(juce::CaretComponent::caretColourId, orange);
+    setColour(juce::ResizableWindow::backgroundColourId, paper);
     setColour(juce::Slider::textBoxTextColourId, mute);
     setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
 }
@@ -30,8 +33,8 @@ void Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, float
     auto r = juce::Rectangle<float>((float) x, (float) y, (float) w, (float) h).reduced(4);
     float d = std::min(r.getWidth(), r.getHeight());
     auto c = r.withSizeKeepingCentre(d, d);
-    g.setColour(card); g.fillEllipse(c);
-    g.setColour(ink); g.drawEllipse(c, 2.0f);
+    g.setColour(card.brighter(0.06f)); g.fillEllipse(c);
+    g.setColour(soft.brighter(0.25f)); g.drawEllipse(c, 2.0f);
     float ang = a0 + pos * (a1 - a0);
     juce::Path arc;
     arc.addCentredArc(c.getCentreX(), c.getCentreY(), d / 2 - 5, d / 2 - 5, 0, a0, ang, true);
@@ -43,19 +46,20 @@ void Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, float
 void Look::drawButtonBackground(juce::Graphics& g, juce::Button& b, const juce::Colour&, bool over, bool down) {
     auto r = b.getLocalBounds().toFloat().reduced(1);
     bool on = b.getToggleState();
-    g.setColour(on ? ink : (over || down ? soft : card));
+    g.setColour(on ? orange : (over || down ? hover : card));
     g.fillRoundedRectangle(r, 5);
-    g.setColour(ink); g.drawRoundedRectangle(r, 5, 1.6f);
+    g.setColour(on ? orange : soft.brighter(0.2f)); g.drawRoundedRectangle(r, 5, 1.6f);
 }
 void Look::drawButtonText(juce::Graphics& g, juce::TextButton& b, bool, bool) {
-    g.setColour(b.getToggleState() ? paper : ink);
+    g.setColour(b.getToggleState() ? dark : ink);
     g.setFont(sans(12.5f, true));
     g.drawText(b.getButtonText(), b.getLocalBounds(), juce::Justification::centred);
 }
 void Look::drawComboBox(juce::Graphics& g, int w, int h, bool, int, int, int, int, juce::ComboBox&) {
     auto r = juce::Rectangle<float>(0, 0, (float) w, (float) h).reduced(1);
     g.setColour(card); g.fillRoundedRectangle(r, 5);
-    g.setColour(ink); g.drawRoundedRectangle(r, 5, 1.6f);
+    g.setColour(soft.brighter(0.2f)); g.drawRoundedRectangle(r, 5, 1.6f);
+    g.setColour(ink);
     juce::Path t; float cx = (float) w - 12, cy = (float) h / 2;
     t.addTriangle(cx - 4, cy - 2, cx + 4, cy - 2, cx, cy + 3);
     g.fillPath(t);
@@ -136,8 +140,8 @@ struct Karaoke : juce::Component {
             auto w = it.words[i];
             float ww = juce::GlyphArrangement::getStringWidth(f, w + " ");
             bool lit = i == word;
-            if (lit) { g.setColour(orange); g.fillRoundedRectangle(x - 4, y, juce::GlyphArrangement::getStringWidth(f, w) + 8, size * 1.18f, 5); }
-            g.setColour(lit ? juce::Colours::white : (word >= 0 && i < word ? juce::Colours::white.withAlpha(0.6f) : juce::Colours::white));
+            if (lit) { g.setColour(yellow); g.fillRoundedRectangle(x - 4, y, juce::GlyphArrangement::getStringWidth(f, w) + 8, size * 1.18f, 5); }
+            g.setColour(lit ? dark : (word >= 0 && i < word ? juce::Colours::white.withAlpha(0.6f) : juce::Colours::white));
             g.setFont(f);
             g.drawText(w, juce::Rectangle<float>(x, y, ww + 10, size * 1.2f), juce::Justification::centredLeft);
             x += ww;
@@ -163,7 +167,8 @@ struct VowelPad : juce::Component {
         return { x, y };
     }
     void paint(juce::Graphics& g) override {
-        g.setColour(card); g.fillRoundedRectangle(getLocalBounds().toFloat(), 6);
+        g.setColour(paper); g.fillRoundedRectangle(getLocalBounds().toFloat(), 6);
+        g.setColour(soft); g.drawRoundedRectangle(getLocalBounds().toFloat().reduced(0.5f), 6, 1);
         juce::Path tr; tr.startNewSubPath(toPx(0, 0)); tr.lineTo(toPx(1, 0)); tr.lineTo(toPx(1, 1)); tr.lineTo(toPx(0, 1)); tr.closeSubPath();
         g.setColour(soft); g.strokePath(tr, juce::PathStrokeType(1.5f));
         int glide = (int) *p.apvts.getRawParameterValue("vowel_glide");
@@ -180,7 +185,7 @@ struct VowelPad : juce::Component {
         }
         auto dot = toPx(p.padX.load(), p.padY.load());
         g.setColour(orange); g.fillEllipse(dot.x - 7, dot.y - 7, 14, 14);
-        g.setColour(ink); g.drawEllipse(dot.x - 7, dot.y - 7, 14, 14, 2);
+        g.setColour(dark); g.drawEllipse(dot.x - 7, dot.y - 7, 14, 14, 2);
         g.setColour(mute); g.setFont(mono(9.5f));
         g.drawText("VOOR", getLocalBounds().reduced(6).removeFromBottom(12), juce::Justification::centredLeft);
         g.drawText("ACHTER", getLocalBounds().reduced(6).removeFromBottom(12), juce::Justification::centredRight);
@@ -229,7 +234,7 @@ struct SpreekbuisEditor::Content : juce::Component {
         reload.onClick = [this] { p.requestReload(); };
         port.setColour(juce::TextEditor::textColourId, ink);
         port.setColour(juce::TextEditor::backgroundColourId, card);
-        port.setColour(juce::TextEditor::outlineColourId, ink);
+        port.setColour(juce::TextEditor::outlineColourId, soft);
         port.setFont(mono(13));
         port.setInputRestrictions(5, "0123456789");
         port.setText(juce::String(p.orcaPort()), false);
@@ -264,7 +269,7 @@ struct SpreekbuisEditor::Content : juce::Component {
         g.setColour(mute); g.setFont(sans(12)); g.drawText("Nederlands als instrument", 160, 16, 220, 30, juce::Justification::centredLeft);
         for (auto& s : sections) {
             g.setColour(card); g.fillRoundedRectangle(s.r.toFloat(), 8);
-            g.setColour(ink); g.drawRoundedRectangle(s.r.toFloat().reduced(1), 8, 2);
+            g.setColour(soft); g.drawRoundedRectangle(s.r.toFloat().reduced(1), 8, 1.5f);
             g.setColour(mute); g.setFont(mono(10.5f));
             g.drawText(s.sub, s.r.reduced(14, 10).removeFromTop(16).withTrimmedLeft(56), juce::Justification::centredRight);
         }

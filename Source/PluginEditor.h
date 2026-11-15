@@ -2,8 +2,15 @@
 #include "PluginProcessor.h"
 
 namespace sbui {
-const juce::Colour paper { 0xfff3f0e8 }, card { 0xfffffdf8 }, ink { 0xff121212 }, mute { 0xff6b675f },
-    soft { 0xffe4dfd3 }, orange { 0xffff6a00 }, navy { 0xff1b2a6b }, yellow { 0xfff4c20d };
+// dark only (Tongval's dark palette)
+const juce::Colour paper { 0xff141413 },  // background
+    card { 0xff1d1c1a },                  // panels
+    ink { 0xfff1ede4 },                   // text
+    mute { 0xff9b968c },                  // muted text
+    soft { 0xff3a3833 },                  // lines / borders
+    hover { 0xff2a2926 }, heavy { 0xff000000 },
+    orange { 0xffff6a00 }, navy { 0xff1b2a6b }, blue { 0xff3d74d6 }, ok { 0xff1f8a4c },
+    yellow { 0xfff4c20d }, dark { 0xff111111 };
 juce::Font sans(float h, bool bold = false);
 juce::Font mono(float h);
 
