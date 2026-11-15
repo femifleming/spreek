@@ -333,7 +333,7 @@ void SpreekbuisProcessor::processOrcaEvents(const Bank* b) {
             auto it = b->byWord.find(m);
             if (it != b->byWord.end()) { triggerWord(*b, it->second, *apvts.getRawParameterValue("cloud_pitch"), 0.9f); return; }
         }
-        auto b36 = [](juce::juce_wchar ch) { return ch >= '0' && ch <= '9' ? ch - '0' : ch >= 'a' && ch <= 'z' ? ch - 'a' + 10 : -1; };
+        auto b36 = [](juce::juce_wchar c) -> int { const int ch = (int) c; return ch >= '0' && ch <= '9' ? ch - '0' : ch >= 'a' && ch <= 'z' ? ch - 'a' + 10 : -1; };   // -1: not base-36 (juce_wchar is unsigned)
         if (m[0] == 'g' && (m.length() == 1 || (m.length() == 2 && b36(m[1]) >= 0))) {
             int semis = m.length() == 2 ? b36(m[1]) : 0;
             gv.freq = (float) juce::MidiMessage::getMidiNoteInHertz(48 + semis); gv.gate = 1; orcaGHold = (int) (0.12 * sr);
