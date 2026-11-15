@@ -145,11 +145,16 @@ auto noteAt (int onBlock, int offBlock, int note = 48, int vel = 100)
 // typed text, spoken on a TRIG note: the same words every time, so a control's effect can be measured
 std::unique_ptr<SpraakProcessor> sayer (std::function<void (SpraakProcessor&)> setup, int inputs = 0)
 {
-    return fresh ([&] (SpraakProcessor& p) {
+    auto p = fresh ([&] (SpraakProcessor& p) {
         setP (p, "lang", 1); setP (p, "source", 2); setP (p, "trig", 1);
         p.planner().setKeyboardText ("hallo wereld, ik ben de spraakmaker");
         setup (p);
     }, inputs);
+    // the planner only sees the new settings once a block has run: feed it silent blocks at real-time pace until the
+    // typed text is queued, so the note in the render speaks it at the same moment every time (slow CI machines too)
+    juce::AudioBuffer<float> buf (std::max (2, p->getTotalNumInputChannels()), kBs);
+    for (int b = 0; b < 300 && ! p->planner().ready(); ++b) { buf.clear(); juce::MidiBuffer m; p->processBlock (buf, m); juce::Thread::sleep (10); }
+    return p;
 }
 }
 

@@ -78,6 +78,8 @@ public:
 
     // synchronous (tests)
     void makeNext (Utterance& u);
+    // tests: is an utterance for the current settings waiting in the queue? (call from the thread that pops)
+    bool ready() const { int s1, n1, s2, n2; fifo.prepareToRead (1, s1, n1, s2, n2); return n1 > 0 && slots[(size_t) s1].key == settingsKey(); }
     void startPlanner() { startThread (juce::Thread::Priority::normal); }
 
 private:
