@@ -28,6 +28,8 @@ ROOT = HERE.parent
 
 def out_root(female):
     name = "voice-female" if female else "voice"
+    if os.environ.get("SPREEKBUIS_DATA_DIR"):   # the same override the plug-in honours
+        return Path(os.environ["SPREEKBUIS_DATA_DIR"]) / name
     if sys.platform == "darwin":
         base = Path.home() / "Library" / "Application Support"
     elif sys.platform.startswith("win"):
@@ -153,9 +155,17 @@ class Say(Engine):
     def voices(self):
         res = []
         for line in subprocess.run(["say", "-v", "?"], capture_output=True, text=True).stdout.splitlines():
-            m = re.match(r"^(.*?)\s{2,}([a-z]{2}[_-][A-Z]{2})\s", line)
+            # "Xander (Dutch (Netherlands)) nl_NL    # Hallo! ..."  /  "Xander (Enhanced) (Dutch (Netherlands)) nl_NL ..."
+            m = re.match(r"^(.+?)\s+([a-z]{2,3}[_-][A-Z]{2,4})\s+#", line)
             if not m: continue
             name, lang = m.group(1).strip(), m.group(2).replace("_", "-")
+            if name.endswith(")"):   # drop the trailing "(language (region))" group, keep "(Enhanced)" / "(Premium)"
+                depth, i = 0, len(name) - 1
+                while i >= 0:
+                    depth += 1 if name[i] == ")" else -1 if name[i] == "(" else 0
+                    if depth == 0: break
+                    i -= 1
+                name = name[:i].strip()
             g = "f" if any(n in name for n in ("Claire", "Ellen", "Samantha", "Ava", "Zoe", "Allison", "Susan")) else "m" if any(n in name for n in ("Xander", "Alex", "Tom", "Daniel", "Fred")) else "?"
             res.append((name, lang, g))
         return res
@@ -234,7 +244,7 @@ def choose(voices, prefix, female, want_name=None):
     def score(v):
         n = v[0]
         s = 0
-        if "nl-NL" in v[1] or "nl_NL" in v[1]: s += 100
+        if v[1] in ("nl-NL", "en-US"): s += 100   # Netherlands Dutch over Flemish, US English over the others
         if "Premium" in n: s += 30
         elif "Enhanced" in n: s += 20
         if "medium" in n or "high" in n: s += 10   # piper model quality
