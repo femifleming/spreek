@@ -35,14 +35,14 @@ if(SPREEK_BUILD_TESTS)
     target_link_libraries(SpraakTest PRIVATE SpraakData juce::juce_audio_formats juce::juce_dsp juce::juce_recommended_config_flags)
 
     # full plug-in test (processor + editor through the shared code): presets + UI shots
-    juce_add_gui_app(SpraakShot PRODUCT_NAME "SpraakShot")
+    juce_add_console_app(SpraakShot PRODUCT_NAME "SpraakShot")   # console app: links on Windows (no WinMain), still draws the editor
     target_sources(SpraakShot PRIVATE tests/SpraakShot.cpp ${SM_SOURCES})
     target_include_directories(SpraakShot PRIVATE Source ${SPREEK_COMMON_DIR})
     target_compile_definitions(SpraakShot PRIVATE ${SM_DEFS} JucePlugin_Name="Spraakmaker" JUCE_MODAL_LOOPS_PERMITTED=1)
     target_link_libraries(SpraakShot PRIVATE SpraakData juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 
     # every feature, one by one (trigger modes, sources, engines, tunings, fx, modulation, trg out, presets, state)
-    juce_add_gui_app(SpraakFull PRODUCT_NAME "SpraakFull")
+    juce_add_console_app(SpraakFull PRODUCT_NAME "SpraakFull")
     target_sources(SpraakFull PRIVATE tests/SpraakFull.cpp ${SM_SOURCES})
     target_include_directories(SpraakFull PRIVATE Source ${SPREEK_COMMON_DIR})
     target_compile_definitions(SpraakFull PRIVATE ${SM_DEFS} JucePlugin_Name="Spraakmaker" JUCE_MODAL_LOOPS_PERMITTED=1)
