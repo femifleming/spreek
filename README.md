@@ -12,7 +12,11 @@ Dutch as an instrument. A VST3/AU/Standalone instrument that plays the words and
 - **Wolk** (cloud) — granular cloud of the words you know: density, grain size, scatter, position, pitch, stereo,
   reverse, and *translation grains*: English glosses run through a 12-band noise vocoder (whisper).
 - **Klinker** — formant filter whose XY pad is the Dutch vowel chart (i y u ɪ ʏ e ø o ə ɔ ɛ a ɑ), with diphthong
-  glides ɛi (ij/ei), œy (ui), ʌu (ou/au). Source: saw, noise, the sidechain input, or saw + input.
+  glides ɛi (ij/ei), œy (ui), ʌu (ou/au). Source: saw, noise, the sidechain input, or saw + input. Click or drag the chart
+  to hear it; notes play it when *Toetsen* includes Klinker (a hint on the chart says when they don't). Live doesn't send
+  audio into instruments, so *Input* is silent there (the chart says so).
+- **Stem** (Man / Vrouw, top bar) — the voice of the words (a second rendered bank) and the vowel chart (female formants,
+  an octave higher). Render the woman's voice with `tools/render.sh --female` (Claire if installed, else Ellen, Flemish).
 - **G** — the Dutch g/ch as a pitched fricative: hard Holland /x/ with uvular rasp ↔ soft Flemish /ɣ/ with voicing.
 - **Orca** — UDP on 127.0.0.1:49162 (Orca's `;` operator): `;fiets` speaks a word in your bank, `;g` / `;g7` fires
   the g (base-36 semitones), `;vui` `;veu` `;vij` `;va` hits a vowel, anything else base-36 indexes your items.

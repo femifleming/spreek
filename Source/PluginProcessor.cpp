@@ -94,6 +94,8 @@ APVTS::ParameterLayout SpreekbuisProcessor::layout() {
     f("g_voice", "Voicing", 0, 1, 0.5f); f("g_harm", "Resonance x", 1, 24, 8, 6);
     f("g_release", "G release", 0.01f, 2, 0.15f, 0.3f);
     b("orca_on", "Orca bridge", true);
+    // the voice: the words (a second rendered bank) and the vowel chart's formants and pitch
+    c("voice", "Voice", { "Man", "Vrouw" }, 0);
     return l;
 }
 
@@ -177,7 +179,8 @@ void SpreekbuisProcessor::startBankLoad() {
     BankRequest r;
     r.unit = (int) *apvts.getRawParameterValue("loop_unit");
     r.allItems = *apvts.getRawParameterValue("all_items") > 0.5f;
-    loadedUnit = r.unit; loadedAll = r.allItems;
+    r.female = *apvts.getRawParameterValue("voice") > 0.5f;
+    loadedUnit = r.unit; loadedAll = r.allItems; loadedFemale = r.female;
     juce::Component::SafePointer<juce::Component> dummy;
     loader = std::make_unique<BankLoader>(r, [this](std::shared_ptr<Bank> b) {
         juce::MessageManager::callAsync([this, b] {
@@ -196,7 +199,8 @@ void SpreekbuisProcessor::loadBankNow() { // synchronous (tests)
     BankRequest r;
     r.unit = (int) *apvts.getRawParameterValue("loop_unit");
     r.allItems = *apvts.getRawParameterValue("all_items") > 0.5f;
-    loadedUnit = r.unit; loadedAll = r.allItems;
+    r.female = *apvts.getRawParameterValue("voice") > 0.5f;
+    loadedUnit = r.unit; loadedAll = r.allItems; loadedFemale = r.female;
     auto b = loadBank(r, {});
     const juce::SpinLock::ScopedLockType l(bankLock);
     bankOwner = b; bankPtr.store(b.get());
@@ -206,7 +210,8 @@ void SpreekbuisProcessor::loadBankNow() { // synchronous (tests)
 void SpreekbuisProcessor::timerCallback() {
     int unit = (int) *apvts.getRawParameterValue("loop_unit");
     bool all = *apvts.getRawParameterValue("all_items") > 0.5f;
-    if (unit != loadedUnit || all != loadedAll) reloadPending = true;
+    bool fem = *apvts.getRawParameterValue("voice") > 0.5f;
+    if (unit != loadedUnit || all != loadedAll || fem != loadedFemale) reloadPending = true;
     if (reloadPending && (loader == nullptr || !loader->isThreadRunning())) { reloadPending = false; startBankLoad(); }
     for (auto& g : graveyard) --g.second;
     graveyard.erase(std::remove_if(graveyard.begin(), graveyard.end(), [](auto& g) { return g.second <= 0; }), graveyard.end());
@@ -296,7 +301,7 @@ void SpreekbuisProcessor::handleNoteOn(const Bank* b, int note, int vel) {
         heldItems.insert(idx);
         triggerWord(*b, idx, *apvts.getRawParameterValue("cloud_pitch"), 0.4f + 0.6f * vel / 127.0f);
     }
-    if (vow) { vowelNotes.push_back(note); vowel.freq = (float) juce::MidiMessage::getMidiNoteInHertz(note); vowel.gate = vel / 127.0f; }
+    if (vow) { vowelNotes.push_back(note); vowel.freq = lastVowelFreq = (float) juce::MidiMessage::getMidiNoteInHertz(note); vowel.gate = vel / 127.0f; }
     if (g) { gNotes.push_back(note); gv.freq = (float) juce::MidiMessage::getMidiNoteInHertz(note); gv.gate = 0.4f + 0.6f * vel / 127.0f; }
 }
 
@@ -308,7 +313,7 @@ void SpreekbuisProcessor::handleNoteOff(int note) {
         if (!still) heldItems.erase(it);
     }
     vowelNotes.erase(std::remove(vowelNotes.begin(), vowelNotes.end(), note), vowelNotes.end());
-    if (vowelNotes.empty()) vowel.gate = 0; else vowel.freq = (float) juce::MidiMessage::getMidiNoteInHertz(vowelNotes.back());
+    if (vowelNotes.empty()) vowel.gate = padHeld.load() ? 0.8f : 0.0f; else vowel.freq = (float) juce::MidiMessage::getMidiNoteInHertz(vowelNotes.back());
     gNotes.erase(std::remove(gNotes.begin(), gNotes.end(), note), gNotes.end());
     if (gNotes.empty()) gv.gate = 0; else gv.freq = (float) juce::MidiMessage::getMidiNoteInHertz(gNotes.back());
 }
@@ -345,7 +350,7 @@ void SpreekbuisProcessor::processOrcaEvents(const Bank* b) {
             if (f != V.end()) {
                 orcaVX = f->second.first; orcaVY = f->second.second;
                 vowel.gate = 1; orcaVowelHold = (int) (0.35 * sr);
-                if (vowelNotes.empty()) vowel.freq = 110;
+                if (vowelNotes.empty()) vowel.freq = *apvts.getRawParameterValue("voice") > 0.5f ? 220.0f : 110.0f;
                 return;
             }
         }
@@ -373,6 +378,10 @@ void SpreekbuisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::M
     inputCopy.clear();
     for (int c = 0; c < std::min(2, inCh); ++c) inputCopy.copyFrom(c, 0, buffer, c, 0, N);
     if (inCh == 1) inputCopy.copyFrom(1, 0, buffer, 0, 0, N);
+    {
+        const float lvl = inCh > 0 ? inputCopy.getMagnitude(0, 0, N) : 0.0f;
+        inputLevel.store(std::max(lvl, inputLevel.load() * 0.97f));
+    }
     buffer.clear();
 
     if (b != lastBank) { // new bank: drop every voice that points into the old one
@@ -425,6 +434,16 @@ void SpreekbuisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::M
     const float vRate = P("vowel_rate"), vNoise = P("vowel_noise"), vQ = P("vowel_q"), vShift = std::pow(2.0f, P("vowel_shift") / 12.0f);
     const float vAtk = 1 - std::exp(-1.0f / (P("vowel_attack") * (float) sr)), vRel = 1 - std::exp(-1.0f / (P("vowel_release") * (float) sr));
     const float fSmooth = 1 - std::exp(-1.0f / (0.01f * (float) sr));
+    // the woman's voice: vowel resonances about a sixth higher (F1 x1.17, F2 x1.18, F3 x1.15, after Peterson & Barney)
+    const bool female = P("voice") > 0.5f;
+    const float fF1 = female ? 1.17f : 1.0f, fF2 = female ? 1.18f : 1.0f, fF3 = female ? 1.15f : 1.0f;
+    // the chart pressed with the mouse plays the vowel by itself (at the last note's pitch, or A2)
+    const bool padHeldNow = padHeld.load();
+    if (padHeldNow != padWasHeld) {
+        padWasHeld = padHeldNow;
+        if (padHeldNow) { if (vowelNotes.empty()) vowel.freq = lastVowelFreq > 0 ? lastVowelFreq : (female ? 220.0f : 110.0f); vowel.gate = std::max(vowel.gate, 0.8f); }
+        else if (vowelNotes.empty() && orcaVowelHold == 0) vowel.gate = 0;
+    }
     // ---------------- g params
     const bool gOn = P("g_on") > 0.5f;
     const float gSoft = P("g_soft"), gRasp = P("g_rasp"), gVoice = P("g_voice"), gHarm = P("g_harm");
@@ -528,8 +547,8 @@ void SpreekbuisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::M
             l += w * 0.9f; r += w;
         }
 
-        // ---- vowel pad
-        if (vowelOn) {
+        // ---- vowel pad (switched on, or played from the chart or by Orca)
+        if (vowelOn || padHeldNow || orcaVowelHold > 0 || vowel.env > 1e-4f) {
             float x = P("vowel_x"), y = P("vowel_y");
             if (glide > 0) {
                 glidePh += vRate / (float) sr; if (glidePh >= 1) glidePh -= 1;
@@ -537,15 +556,17 @@ void SpreekbuisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::M
                 auto& gl = glides()[(size_t) glide - 1];
                 x = gl.x0 + (gl.x1 - gl.x0) * t; y = gl.y0 + (gl.y1 - gl.y0) * t;
             }
-            if (orcaVowelHold > 0) { x = orcaVX; y = orcaVY; if (--orcaVowelHold == 0 && vowelNotes.empty()) vowel.gate = 0; }
+            if (orcaVowelHold > 0) { x = orcaVX; y = orcaVY; if (--orcaVowelHold == 0 && vowelNotes.empty() && !padHeldNow) vowel.gate = 0; }
             if ((i & 31) == 0) { padX = x; padY = y; }
             float f1, f2, f3;
             formantsAt(x, y, f1, f2, f3);
-            f1s += fSmooth * (f1 * vShift - f1s); f2s += fSmooth * (f2 * vShift - f2s); f3s += fSmooth * (f3 * vShift - f3s);
+            f1s += fSmooth * (f1 * fF1 * vShift - f1s); f2s += fSmooth * (f2 * fF2 * vShift - f2s); f3s += fSmooth * (f3 * fF3 * vShift - f3s);
             float srcSig = 0;
             const float inMono = 0.5f * (inputCopy.getSample(0, i) + inputCopy.getSample(1, i));
             const bool synthSrc = src == 0 || src == 1 || src == 3;
-            vowel.env += (vowel.gate > vowel.env ? vAtk : vRel) * (vowel.gate - vowel.env);
+            // switched off (and not played from the chart or Orca): the held notes only get their release
+            const float gateNow = (vowelOn || padHeldNow || orcaVowelHold > 0) ? vowel.gate : 0.0f;
+            vowel.env += (gateNow > vowel.env ? vAtk : vRel) * (gateNow - vowel.env);
             if (synthSrc) srcSig += vowel.osc(src == 1 ? 1.0f : vNoise) * vowel.env;
             if (src >= 2) srcSig += inMono * 2.0f;
             float v = vowel.filter(srcSig, f1s, f2s, f3s, vQ) * 0.5f * lVow;
@@ -575,7 +596,11 @@ void SpreekbuisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::M
     }
     for (int c = 0; c < 2; ++c) {
         auto* d = buffer.getWritePointer(c);
-        for (int i = 0; i < N; ++i) d[i] = std::isfinite(d[i]) ? juce::jlimit(-1.5f, 1.5f, d[i]) : 0.0f;
+        for (int i = 0; i < N; ++i) {
+            // soft ceiling: untouched below 0.7, then bent smoothly towards 1.0 (it used to clip hard at 1.5)
+            const float x = std::isfinite(d[i]) ? d[i] : 0.0f, a = std::abs(x);
+            d[i] = a <= 0.7f ? x : std::copysign(0.7f + 0.3f * std::tanh((a - 0.7f) / 0.3f), x);
+        }
     }
     midi.swapWith(out);
 }

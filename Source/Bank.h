@@ -7,7 +7,7 @@
 namespace sb {
 
 juce::File supportDir();          // ~/Library/Application Support/Spreekbuis
-juce::File voiceDir();            // …/Spreekbuis/voice
+juce::File voiceDir(bool female = false);  // …/Spreekbuis/voice, or voice-female (tools/render.sh --female)
 juce::File tongvalProgressFile(); // ~/Library/Application Support/Tongval/progress.json
 juce::File playLogFile();         // …/Spreekbuis/plays.json
 int todayNumber();                // local day number, same formula as Tongval's today()
@@ -30,10 +30,11 @@ struct Bank {
     juce::String voiceName, status;
     int unit = 1, knownCount = 0;
     bool allItems = false, manifestFound = false;
+    bool female = false;               // the woman's voice is what was loaded
     mutable std::vector<double> lastCounted; // audio thread: when each item was last counted as heard
 };
 
-struct BankRequest { int unit = 0; bool allItems = false; };
+struct BankRequest { int unit = 0; bool allItems = false; bool female = false; };
 
 // Builds a bank on the calling thread (call from a background thread).
 std::shared_ptr<Bank> loadBank(const BankRequest&, const std::function<bool()>& shouldExit);

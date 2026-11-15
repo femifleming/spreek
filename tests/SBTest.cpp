@@ -2,12 +2,13 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include <iostream>
+#include <juce_dsp/juce_dsp.h>
 
 static void setP(SpreekbuisProcessor& p, const char* id, float v) {
     auto* rp = p.apvts.getParameter(id);
     rp->setValueNotifyingHost(rp->convertTo0to1(v));
 }
-struct Result { double rms = 0; bool finite = true; int midiOut = 0; };
+struct Result { double rms = 0; bool finite = true; int midiOut = 0; float peak = 0; };
 static Result render(SpreekbuisProcessor& p, double seconds, std::vector<int> notes, std::function<void(int)> perBlock = {}) {
     const int bs = 512; const double sr = 48000;
     juce::AudioBuffer<float> buf(2, bs);
@@ -21,13 +22,25 @@ static Result render(SpreekbuisProcessor& p, double seconds, std::vector<int> no
         buf.clear();
         p.processBlock(buf, m);
         for (const auto ev : m) if (ev.getMessage().isNoteOn()) r.midiOut++;
-        for (int c = 0; c < 2; ++c) for (int i = 0; i < bs; ++i) { float v = buf.getSample(c, i); if (!std::isfinite(v)) r.finite = false; sum += v * v; ++n; }
+        for (int c = 0; c < 2; ++c) for (int i = 0; i < bs; ++i) { float v = buf.getSample(c, i); if (!std::isfinite(v)) r.finite = false; sum += v * v; ++n; r.peak = std::max(r.peak, std::abs(v)); }
     }
     r.rms = std::sqrt(sum / std::max(1L, n));
     return r;
 }
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI init;
+    if (argc > 2 && juce::String(argv[1]) == "--vowelwav") { // the chart pressed, man and woman, to <dir>/man.wav, vrouw.wav
+        for (int v = 0; v < 2; ++v) {
+            SpreekbuisProcessor p; setP(p, "orca_on", 0); setP(p, "voice", (float) v); setP(p, "vowel_on", 1); setP(p, "space", 0);
+            setP(p, "loop_on", 0); p.prepareToPlay(48000, 512); p.padHeld = true;
+            juce::AudioBuffer<float> all(1, 512 * 80), buf(2, 512);
+            for (int k = 0; k < 80; ++k) { buf.clear(); juce::MidiBuffer m; p.processBlock(buf, m); all.copyFrom(0, k * 512, buf, 0, 0, 512); }
+            juce::File out = juce::File(argv[2]).getChildFile(v ? "vrouw.wav" : "man.wav"); out.deleteFile();
+            juce::WavAudioFormat wav; std::unique_ptr<juce::AudioFormatWriter> w(wav.createWriterFor(new juce::FileOutputStream(out), 48000, 1, 24, {}, 0));
+            w->writeFromAudioSampleBuffer(all, 0, all.getNumSamples());
+        }
+        return 0;
+    }
     if (argc > 2 && juce::String(argv[1]) == "--shot") { // UI snapshot
         SpreekbuisProcessor p; setP(p, "orca_on", 0); setP(p, "vowel_on", 1); setP(p, "vowel_glide", 2); setP(p, "all_items", 1);
         p.loadBankNow(); p.prepareToPlay(48000, 512);
@@ -42,7 +55,7 @@ int main(int argc, char** argv) {
     int fails = 0;
     auto check = [&](const char* name, Result r, bool wantMidi = false) {
         bool ok = r.finite && r.rms > 1e-4 && (!wantMidi || r.midiOut > 0);
-        std::cout << (ok ? "PASS " : "FAIL ") << name << "  rms=" << r.rms << "  midiOut=" << r.midiOut << (r.finite ? "" : "  NaN!") << "\n";
+        std::cout << (ok ? "PASS " : "FAIL ") << name << "  rms=" << r.rms << "  peak=" << r.peak << "  midiOut=" << r.midiOut << (r.finite ? "" : "  NaN!") << "\n";
         if (!ok) ++fails;
     };
     auto fresh = [](std::function<void(SpreekbuisProcessor&)> setup) {
@@ -80,6 +93,76 @@ int main(int argc, char** argv) {
         check("after cycling presets", render(*p, 2, { 62 }));
         juce::MemoryBlock mb; p->getStateInformation(mb); p->setStateInformation(mb.getData(), (int) mb.getSize());
         std::cout << "state round-trip " << mb.getSize() << " bytes\n";
+    }
+    // ---- the vowel chart and the ways it is used
+    {
+        auto p = fresh([](auto& p) { setP(p, "vowel_on", 1); });   // keys left on Words
+        p->padHeld = true;
+        check("klinker: pressing the chart plays it (no notes)", render(*p, 1.5, {}));
+    }
+    {
+        auto p = fresh([](auto&) {});                                 // klinker switched off
+        p->padHeld = true;
+        check("klinker: the chart plays even with the layer off", render(*p, 1.5, {}));
+    }
+    {
+        auto p = fresh([](auto&) {});
+        check("klinker: orca ;vui plays with the layer off", render(*p, 1, {}, [&](int k) { if (k == 2) p->pushOrca("vui"); }));
+    }
+    {
+        auto p = fresh([](auto& p) { setP(p, "vowel_on", 1); setP(p, "keys", 1); setP(p, "vowel_release", 0.1f); });
+        juce::MidiBuffer on; on.addEvent(juce::MidiMessage::noteOn(1, 48, (juce::uint8) 100), 0);
+        juce::AudioBuffer<float> buf(2, 512);
+        for (int k = 0; k < 40; ++k) { buf.clear(); juce::MidiBuffer m; if (k == 0) m = on; p->processBlock(buf, m); }
+        setP(*p, "vowel_on", 0);                                      // switched off while the note is held
+        double tail = 0;
+        for (int k = 0; k < 140; ++k) { buf.clear(); juce::MidiBuffer m; p->processBlock(buf, m); if (k >= 120) tail += buf.getRMSLevel(0, 0, 512); }
+        const bool ok = tail / 20 < 1e-4;
+        std::cout << (ok ? "PASS " : "FAIL ") << "klinker: switched off mid-note it fades out  tail rms=" << tail / 20 << "\n";
+        if (!ok) ++fails;
+    }
+    // ---- loudness: everything at once, hot settings, never past full scale
+    {
+        auto p = fresh([](auto& p) { for (auto id : { "loop_on", "cloud_on", "vowel_on", "g_on" }) setP(p, id, 1);
+                                     setP(p, "keys", 4); setP(p, "vowel_q", 3); setP(p, "master", 1.5f); setP(p, "cloud_density", 60);
+                                     for (auto id : { "loop_level", "cloud_level", "vowel_level", "g_level", "whisper_level" }) setP(p, id, 1.5f); });
+        auto r = render(*p, 4, { 36, 48, 60, 67 });
+        const bool ok = r.finite && r.peak <= 1.0f;
+        std::cout << (ok ? "PASS " : "FAIL ") << "everything hot: peak " << r.peak << " (soft ceiling 1.0)\n";
+        if (!ok) ++fails;
+    }
+    // ---- the real Orca socket (a spare port, so a running Spreekbuis doesn't get in the way)
+    {
+        auto p = fresh([](auto& p) { setP(p, "orca_on", 1); });
+        p->setOrcaPort(49177);
+        p->testTick();
+        juce::DatagramSocket out;
+        const int sent = out.write("127.0.0.1", 49177, "g7", 2) + out.write("127.0.0.1", 49177, "veu", 3);
+        juce::Thread::sleep(300);
+        auto r = render(*p, 1, {});
+        const bool ok = p->orcaListening.load() && sent == 5 && p->orcaPackets.load() == 2 && r.rms > 1e-4;
+        std::cout << (ok ? "PASS " : "FAIL ") << "orca over udp: listening " << p->orcaListening.load() << ", packets " << p->orcaPackets.load() << ", rms " << r.rms << "\n";
+        if (!ok) ++fails;
+    }
+    // ---- the voice switch: the woman's words and a higher vowel chart
+    {
+        // the chart pressed: the spectral centroid of a second of it (the woman's is higher: pitch and formants)
+        auto zc = [&](float voice) {
+            auto p = fresh([&](auto& p) { setP(p, "voice", voice); setP(p, "vowel_on", 1); setP(p, "vowel_src", 0); });
+            p->padHeld = true;
+            juce::AudioBuffer<float> buf(2, 512); std::vector<float> x;
+            for (int k = 0; k < 120; ++k) { buf.clear(); juce::MidiBuffer m; p->processBlock(buf, m); if (k >= 30 && x.size() < 32768) x.insert(x.end(), buf.getReadPointer(0), buf.getReadPointer(0) + 512); }
+            x.resize(32768);
+            juce::dsp::FFT fft(15); std::vector<float> d(65536, 0.0f); std::copy(x.begin(), x.end(), d.begin());
+            fft.performFrequencyOnlyForwardTransform(d.data());
+            double num = 0, den = 0; for (int i = 1; i < 16384; ++i) { num += d[(size_t) i] * (i * 48000.0 / 32768.0); den += d[(size_t) i]; }
+            return std::make_pair((int) (num / den), p->uiBank());
+        };
+        auto [man, bm] = zc(0); auto [vrouw, bv] = zc(1);
+        const bool ok = vrouw > man * 1.05 && bm && !bm->female && bv && bv->female && !bv->items.empty();
+        std::cout << (ok ? "PASS " : "FAIL ") << "voice switch: chart centroid man (Hz) " << man << " / vrouw " << vrouw
+                  << "; words " << bm->voiceName << " / " << bv->voiceName << " (" << bv->items.size() << " items)\n";
+        if (!ok) ++fails;
     }
     std::cout << (fails ? "FAILED " : "ALL PASSED ") << fails << "\n";
     return fails ? 1 : 0;

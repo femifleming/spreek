@@ -189,6 +189,17 @@ struct VowelPad : juce::Component {
         g.setColour(mute); g.setFont(mono(9.5f));
         g.drawText("VOOR", getLocalBounds().reduced(6).removeFromBottom(12), juce::Justification::centredLeft);
         g.drawText("ACHTER", getLocalBounds().reduced(6).removeFromBottom(12), juce::Justification::centredRight);
+        // why it might be quiet
+        juce::String hint;
+        const int src = (int) *p.apvts.getRawParameterValue("vowel_src");
+        const bool on = *p.apvts.getRawParameterValue("vowel_on") > 0.5f;
+        if (src == 2 && p.inputLevel.load() < 1.0e-4f) hint = "bron Ingang: er komt geen audio binnen";
+        else if (on && !p.notesReachVowel()) hint = "noten: zet Toetsen op Klinker";
+        else if (!on) hint = "klik of sleep om te horen";
+        if (hint.isNotEmpty()) {
+            g.setColour(on || src == 2 ? orange : mute); g.setFont(mono(9.5f));
+            g.drawText(hint, getLocalBounds().reduced(6).removeFromTop(12), juce::Justification::centred);
+        }
     }
     void set(const juce::MouseEvent& e) {
         auto [x, y] = fromPx(e.position);
@@ -199,9 +210,13 @@ struct VowelPad : juce::Component {
     }
     void mouseDown(const juce::MouseEvent& e) override {
         p.apvts.getParameter("vowel_x")->beginChangeGesture(); p.apvts.getParameter("vowel_y")->beginChangeGesture(); set(e);
+        p.padHeld = true;   // pressing the chart plays the vowel
     }
     void mouseDrag(const juce::MouseEvent& e) override { set(e); }
-    void mouseUp(const juce::MouseEvent&) override { p.apvts.getParameter("vowel_x")->endChangeGesture(); p.apvts.getParameter("vowel_y")->endChangeGesture(); }
+    void mouseUp(const juce::MouseEvent&) override {
+        p.padHeld = false;
+        p.apvts.getParameter("vowel_x")->endChangeGesture(); p.apvts.getParameter("vowel_y")->endChangeGesture();
+    }
 };
 
 // ---------------------------------------------------------------- content (laid out at 1180x700, scaled)
@@ -209,7 +224,8 @@ struct SpreekbuisEditor::Content : juce::Component {
     SpreekbuisProcessor& p;
     Karaoke karaoke;
     VowelPad pad;
-    juce::ComboBox presets;
+    juce::ComboBox presets, voiceBox;
+    std::unique_ptr<CA> voiceAtt;
     Toggle allItems, loopOn, loopWhisper, loopMidi, cloudOn, vowelOn, gOn, orcaOn;
     juce::TextButton reload { "Herlaad" };
     juce::TextEditor port;
@@ -228,6 +244,11 @@ struct SpreekbuisEditor::Content : juce::Component {
           orcaOn(pr, "orca_on", "ORCA") {
         for (auto* c : std::initializer_list<juce::Component*> { &karaoke, &pad, &presets, &allItems, &loopOn, &loopWhisper, &loopMidi, &cloudOn, &vowelOn, &gOn, &orcaOn, &reload, &port, &status, &orcaStatus, &help })
             addAndMakeVisible(*c);
+        // man's or woman's voice: the words and the vowel chart
+        voiceBox.addItemList({ "Man", "Vrouw" }, 1);
+        voiceBox.setTooltip("de stem: de woorden en de klinkerkaart");
+        addAndMakeVisible(voiceBox);
+        voiceAtt = std::make_unique<CA>(p.apvts, "voice", voiceBox);
         for (int i = 0; i < p.getNumPrograms(); ++i) presets.addItem(p.getProgramName(i), i + 1);
         presets.setSelectedId(p.getCurrentProgram() + 1, juce::dontSendNotification);
         presets.onChange = [this] { p.setCurrentProgram(presets.getSelectedId() - 1); };
@@ -281,9 +302,10 @@ struct SpreekbuisEditor::Content : juce::Component {
 
     void resized() override {
         presets.setBounds(W - 520, 16, 200, 28);
+        voiceBox.setBounds(W - 622, 16, 94, 28);
         allItems.setBounds(W - 310, 16, 96, 28);
         reload.setBounds(W - 206, 16, 80, 28);
-        status.setBounds(380, 16, W - 900, 28);
+        status.setBounds(380, 10, W - 1012, 40);
         karaoke.setBounds(18, 56, W - 36, 150);
 
         sections.clear();

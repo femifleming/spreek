@@ -7,7 +7,7 @@ juce::File supportDir() {
     return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
         .getChildFile("Application Support").getChildFile("Spreekbuis");
 }
-juce::File voiceDir() { return supportDir().getChildFile("voice"); }
+juce::File voiceDir(bool female) { return supportDir().getChildFile(female ? "voice-female" : "voice"); }
 juce::File playLogFile() { return supportDir().getChildFile("plays.json"); }
 juce::File tongvalProgressFile() {
     return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
@@ -66,7 +66,9 @@ std::shared_ptr<Bank> loadBank(const BankRequest& req, const std::function<bool(
     bank->allItems = req.allItems;
     bank->unit = req.unit > 0 ? req.unit : currentTongvalUnit();
 
-    auto manifest = readJson(voiceDir().getChildFile("manifest.json"));
+    // the woman's voice if it was asked for and has been rendered; otherwise the man's
+    bank->female = req.female && voiceDir(true).getChildFile("manifest.json").existsAsFile();
+    auto manifest = readJson(voiceDir(bank->female).getChildFile("manifest.json"));
     auto* items = manifest.getProperty("items", {}).getArray();
     if (items == nullptr) {
         bank->status = "No voice bank yet - run tools/render.sh in ~/spreekbuis";
@@ -89,7 +91,7 @@ std::shared_ptr<Bank> loadBank(const BankRequest& req, const std::function<bool(
 
     juce::AudioFormatManager fm;
     fm.registerBasicFormats();
-    auto vd = voiceDir();
+    auto vd = voiceDir(bank->female);
 
     for (auto& v : *items) {
         if (shouldExit && shouldExit()) return nullptr;
@@ -130,7 +132,8 @@ std::shared_ptr<Bank> loadBank(const BankRequest& req, const std::function<bool(
     // an empty pool would make the instrument silent: fall back to the lesson
     if (bank->pool.empty()) bank->pool = bank->lesson[3];
     bank->status = juce::String(bank->knownCount) + " learned items" + (req.allItems ? " (playing all " + juce::String(bank->items.size()) + ")" : "")
-                 + " - lesson " + juce::String(bank->unit) + " - voice " + bank->voiceName;
+                 + " - lesson " + juce::String(bank->unit) + " - voice " + bank->voiceName
+                 + (req.female && !bank->female ? " (vrouwenstem nog niet gerenderd: tools/render.sh --female)" : "");
     return bank;
 }
 

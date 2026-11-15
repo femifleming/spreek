@@ -51,8 +51,15 @@ public:
     // Orca events (from the network thread)
     void pushOrca(const juce::String& msg);
 
-    // test hook
+    // the vowel chart pressed with the mouse: it plays the vowel itself (message thread writes, audio thread reads)
+    std::atomic<bool> padHeld { false };
+    // for the editor's hints: is any audio coming in, and do notes reach the vowel?
+    std::atomic<float> inputLevel { 0.0f };
+    bool notesReachVowel() const { const int k = (int) *apvts.getRawParameterValue("keys"); return k == 1 || k == 3 || k == 4; }
+
+    // test hooks
     void loadBankNow();
+    void testTick() { timerCallback(); }
 
 private:
     void timerCallback() override;
@@ -72,7 +79,7 @@ private:
     std::vector<std::pair<std::shared_ptr<sb::Bank>, int>> graveyard;
     std::unique_ptr<juce::Thread> loader;
     std::atomic<bool> reloadPending { true };
-    int loadedUnit = -1; bool loadedAll = false;
+    int loadedUnit = -1; bool loadedAll = false, loadedFemale = false;
 
     // play log
     juce::AbstractFifo playFifo { 1024 };
@@ -109,6 +116,7 @@ private:
     std::vector<int> vowelNotes;
     float glidePh = 0, f1s = 500, f2s = 1500, f3s = 2500;
     int orcaVowelHold = 0; float orcaVX = 0.5f, orcaVY = 0.5f;
+    bool padWasHeld = false; float lastVowelFreq = -1.0f;   // < 0: no note yet (the chart then plays A2, or A3 for the woman's voice)
     // g
     sb::GVoice gv;
     std::vector<int> gNotes; int orcaGHold = 0;

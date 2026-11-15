@@ -1,6 +1,7 @@
 // Render every Tongval item with the best installed Dutch voice (+ English glosses) for Spreekbuis.
-// swift tools/render.swift build/items.json [--stories] [--force]
-// Output: ~/Library/Application Support/Spreekbuis/voice/{nl,en}/<id>.wav + manifest.json (word-onset frames at 48 kHz)
+// swift tools/render.swift build/items.json [--stories] [--force] [--female]
+// Output: ~/Library/Application Support/Spreekbuis/voice/{nl,en}/<id>.wav + manifest.json (word-onset frames at 48 kHz);
+// --female renders the woman's voice into …/voice-female (Spreekbuis's "Stem: Vrouw").
 import Foundation
 import AVFoundation
 
@@ -9,9 +10,9 @@ guard args.count > 1, let data = FileManager.default.contents(atPath: args[1]),
       let items = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
     print("usage: render.swift items.json [--stories] [--force]"); exit(1)
 }
-let withStories = args.contains("--stories"), force = args.contains("--force")
+let withStories = args.contains("--stories"), force = args.contains("--force"), female = args.contains("--female")
 let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-    .appendingPathComponent("Spreekbuis/voice", isDirectory: true)
+    .appendingPathComponent(female ? "Spreekbuis/voice-female" : "Spreekbuis/voice", isDirectory: true)
 for d in ["nl", "en"] { try? FileManager.default.createDirectory(at: root.appendingPathComponent(d), withIntermediateDirectories: true) }
 
 func best(_ prefix: String, prefer: [String]) -> AVSpeechSynthesisVoice? {
@@ -22,7 +23,17 @@ func best(_ prefix: String, prefer: [String]) -> AVSpeechSynthesisVoice? {
         return sa < sb
     }
 }
-guard let nlVoice = best("nl-NL", prefer: ["Xander", "Claire"]) else { print("no nl-NL voice installed"); exit(1) }
+// a Dutch voice of the asked-for gender: Netherlands first, then Flemish (Ellen) if that's all there is
+func dutch(_ g: AVSpeechSynthesisVoiceGender, prefer: [String]) -> AVSpeechSynthesisVoice? {
+    let vs = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix("nl") && $0.gender == g }
+    return vs.max { a, b in
+        let sa = (a.language == "nl-NL" ? 100 : 0) + a.quality.rawValue * 10 + (prefer.contains(a.name) ? 1 : 0)
+        let sb = (b.language == "nl-NL" ? 100 : 0) + b.quality.rawValue * 10 + (prefer.contains(b.name) ? 1 : 0)
+        return sa < sb
+    }
+}
+guard let nlVoice = female ? dutch(.female, prefer: ["Claire", "Ellen"]) : (dutch(.male, prefer: ["Xander"]) ?? best("nl-NL", prefer: ["Xander"]))
+else { print(female ? "no female Dutch voice installed (System Settings → Accessibility → Spoken Content → Manage Voices → Dutch: Claire)" : "no nl-NL voice installed"); exit(1) }
 let enVoice = best("en-US", prefer: ["Samantha", "Ava", "Zoe"]) ?? AVSpeechSynthesisVoice(language: "en-US")!
 print("Dutch voice: \(nlVoice.name) (quality \(nlVoice.quality.rawValue)); English: \(enVoice.name)")
 
