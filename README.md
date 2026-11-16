@@ -44,6 +44,7 @@ g/ch, hard Holland /x/ to soft Flemish /ɣ/), **Orca** (UDP on 127.0.0.1:49162: 
 | Windows | `python tools\render.py` (System.Speech / SAPI) | an installed Dutch voice (Settings → Time & language → Speech → Manage voices) |
 | Linux | `python3 tools/render.py` | `espeak-ng -v nl` |
 
+Every clip is levelled to the same speech loudness (−16 dBFS) whatever the engine, so the layers balance the same with every voice.
 Without a rendered bank the plug-in is never silent: it speaks every item with the **built-in formant voice** it shares with
 Spraakmaker (made once into `voice-builtin/` on first use). Data folder: `~/Library/Application Support/Spreekbuis` (macOS),
 `%APPDATA%\Spreekbuis` (Windows), `~/.config/Spreekbuis` (Linux). On the Mac that has Tongval, only the items you have learned

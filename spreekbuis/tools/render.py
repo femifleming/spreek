@@ -119,6 +119,24 @@ def write_wav(path, x, sr=48000):
         w.writeframes(struct.pack("<%dh" % len(x), *[max(-32767, min(32767, int(round(v * 32767)))) for v in x]))
 
 
+TARGET_DBFS = -16.0   # speech loudness every clip is brought to (the level of Apple's Dutch voices, which the plug-in's layer balance was tuned on)
+
+
+def normalize(x, target_dbfs=TARGET_DBFS, sr=48000):
+    """Scales a clip so the RMS of its louder half of 10 ms frames (the speech, not the pauses) sits at target_dbfs,
+    peaks capped at 0.95. Engines differ by up to 9 dB otherwise (Piper peaks at 1.0, Voxtral at 0.89, Apple ~0.6), which
+    upsets the balance between the Dutch words, the whispered English and the vowel pad."""
+    frame = sr // 100
+    fr = sorted(math.sqrt(sum(v * v for v in x[i:i + frame]) / frame) for i in range(0, len(x) - frame, frame))
+    loud = fr[len(fr) // 2:] or fr
+    rms = math.sqrt(sum(f * f for f in loud) / len(loud)) if loud else 0.0
+    if rms < 1e-5: return x
+    g = (10 ** (target_dbfs / 20.0)) / rms
+    pk = max(abs(v) for v in x)
+    if pk * g > 0.95: g = 0.95 / pk
+    return [v * g for v in x]
+
+
 def trim(x, sr=48000, thr=0.002):
     a = 0
     while a < len(x) and abs(x[a]) < thr: a += 1
@@ -376,9 +394,26 @@ def choose(voices, prefix, female, want_name=None):
         elif "Enhanced" in n: s += 20
         if n == ("nl_BE-nathalie-medium" if female else "nl_NL-pim-medium"): s += 200   # the bundle's two Piper voices (nathalie is nl-BE)
         if "medium" in n or "high" in n: s += 10   # piper model quality
-        if v[2] == ("f" if female else "m"): s += 5
+        if v[2] == ("f" if female else "m"): s += 150   # the asked-for gender first (Ellen, Flemish, for the woman when no nl-NL woman is installed)
         return s
     return max(vs, key=score) if vs else None
+
+
+def normalize_bank(root):
+    manifest = root / "manifest.json"
+    if not manifest.exists(): print("no bank in %s" % root); return 1
+    j = json.loads(manifest.read_text(encoding="utf-8"))
+    if j.get("level") == TARGET_DBFS: print("%s is already at %.0f dBFS" % (root, TARGET_DBFS)); return 0
+    n = 0
+    for it in j.get("items", []):
+        for key in ("file", "en_file"):
+            f = root / it.get(key, "")
+            if not it.get(key) or not f.exists(): continue
+            x, sr = read_wav(f); write_wav(f, normalize(x, sr=sr), sr); n += 1
+        if n % 200 == 0 and n: print("  %d clips" % n)
+    j["level"] = TARGET_DBFS
+    manifest.write_text(json.dumps(j, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+    print("re-levelled %d clips in %s to %.0f dBFS" % (n, root, TARGET_DBFS)); return 0
 
 
 def main():
@@ -388,7 +423,9 @@ def main():
     ap.add_argument("--setup-piper", action="store_true", help="install piper-tts in a venv and download the Piper voices")
     ap.add_argument("--setup-voxtral", action="store_true", help="macOS Apple Silicon: install mlx-audio in a venv and fetch Voxtral-4B-TTS (~2.5 GB)")
     ap.add_argument("--probe", action="store_true", help="print the engines that would be used and exit (0 = Piper)")
+    ap.add_argument("--normalize", action="store_true", help="re-level the existing bank's clips to the standard loudness, no rendering")
     a = ap.parse_args()
+    if a.normalize: return normalize_bank(out_root(a.female))
     if a.setup_piper: setup_piper(); return 0
     if a.setup_voxtral: return setup_voxtral()
     cands = engines(a.engine)
@@ -447,17 +484,17 @@ def main():
     for it, fid, nlf, enf in todo:
         src = tmp / (fid + "-nl.wav")
         if not src.exists(): print("  (no audio) %s" % it["nl"]); continue
-        x, sr = read_wav(src); x = resample(x, sr); x, _ = trim(x)
+        x, sr = read_wav(src); x = resample(x, sr); x, _ = trim(x); x = normalize(x)
         words = it["nl"].split()
         ons = onsets_from_audio(x, len(words)) or proportional_onsets(x, words)
         write_wav(nlf, x)
         esrc = tmp / (fid + "-en.wav")
         if esrc.exists():
-            e, esr = read_wav(esrc); e = resample(e, esr); e, _ = trim(e); write_wav(enf, e)
+            e, esr = read_wav(esrc); e = resample(e, esr); e, _ = trim(e); e = normalize(e); write_wav(enf, e)
         rec = dict(it); rec.update(file="nl/%s.wav" % fid, en_file="en/%s.wav" % fid, onsets=ons, frames=len(x))
         out_items.append(rec)
     shutil.rmtree(tmp, ignore_errors=True)
-    manifest.write_text(json.dumps({"version": 1, "rate": 48000, "voice": nl_eng.name + ":" + nl[0], "voiceName": nl[0] + (" (Piper)" if nl_eng.name == "piper" else " (Voxtral)" if nl_eng.name == "voxtral" else ""),
+    manifest.write_text(json.dumps({"version": 1, "rate": 48000, "level": TARGET_DBFS, "voice": nl_eng.name + ":" + nl[0], "voiceName": nl[0] + (" (Piper)" if nl_eng.name == "piper" else " (Voxtral)" if nl_eng.name == "voxtral" else ""),
                                     "enVoice": en[0] if en else "", "items": out_items}, ensure_ascii=False, sort_keys=True), encoding="utf-8")
     print("done: %d items -> %s" % (len(out_items), root))
     return 0
