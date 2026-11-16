@@ -37,6 +37,7 @@ struct Out { juce::AudioBuffer<float> audio; int notes60 = 0, notes62 = 0, other
 std::unique_ptr<SpraakProcessor> fresh (std::function<void (SpraakProcessor&)> setup, int inputs = 0)
 {
     std::unique_ptr<SpraakProcessor> p (dynamic_cast<SpraakProcessor*> (createPluginFilter()));
+    p->setOfflineTest (1234);   // planner pumped from processBlock, fixed random seed: identical renders on any machine
     if (inputs > 0)
     {
         auto layout = p->getBusesLayout();
@@ -49,7 +50,6 @@ std::unique_ptr<SpraakProcessor> fresh (std::function<void (SpraakProcessor&)> s
     setup (*p);
     p->setRateAndBufferSizeDetails (kSr, kBs);   // (keeps the bus layout set above)
     p->prepareToPlay (kSr, kBs);
-    juce::Thread::sleep (1500);   // the planner loads its dictionaries (as SpraakShot waits)
     return p;
 }
 

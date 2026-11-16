@@ -45,6 +45,8 @@ public:
     bool loadScl (const juce::File& f);
     juce::String sclName() const { return sclTitle; }
     juce::File dataDir() const;
+    // offline tests: planner driven synchronously from processBlock and a fixed random seed, so a render is repeatable
+    void setOfflineTest (int seed) { plan->setSynchronous (true); rnd.setSeed (seed); }
 
     // display snapshot
     struct Display { char word[sm::kWordChars] {}; char text[160] {}; int phon = 0; };

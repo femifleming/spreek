@@ -211,7 +211,33 @@ void Planner::discardStale()
     }
 }
 
+void Planner::setSynchronous (bool on)
+{
+    if (on)
+    {
+        signalThreadShouldExit(); notify(); stopThread (4000);
+        // forget whatever the thread did before it was stopped (how much depends on timing): queue, generation,
+        // settings memory and the random source start from the same state in every run
+        fifo.reset(); gen.store (1);
+        lastLang = lastSource = lastList = lastOrder = -1; lastKeyb = {}; listPos = alphaPos = 0;
+        { std::lock_guard<std::mutex> l (urgentMutex); urgentText = {}; }
+        urgentState.store (0); urgentRequested.store (false);
+        rng.seed (1234567u);
+    }
+    synchronous.store (on);
+    if (! on && ! isThreadRunning()) startPlanner();
+}
+
 void Planner::run()
+{
+    while (! threadShouldExit())
+    {
+        step();
+        wait (15);
+    }
+}
+
+void Planner::step()
 {
     G2P::get().preload();
     auto checkSettings = [this]() -> int {
@@ -225,36 +251,33 @@ void Planner::run()
         }
         return L;
     };
-    while (! threadShouldExit())
+    const bool sync = synchronous.load();
+    const int L = checkSettings();
+    // urgent text (synchronous mode: only when the urgent slot is free; otherwise it waits for the next pump)
+    juce::String ut;
     {
-        const int L = checkSettings();
-        // urgent text
-        juce::String ut;
-        {
-            std::lock_guard<std::mutex> l (urgentMutex);
-            ut = urgentText; urgentText = {};
-        }
-        if (ut.isNotEmpty())
-        {
-            int expected = 0;
-            while (! threadShouldExit() && ! urgentState.compare_exchange_strong (expected, 1)) { expected = 0; wait (2); }
-            auto words = G2P::get().text (ut.toStdString(), (Lang) L);
-            buildUtterance (words, urgent, ut.toStdString());
-            urgent.gen = gen.load();
-            urgentState.store (2);
-        }
-        while (fifo.getFreeSpace() > 0 && ! threadShouldExit())
-        {
-            int s1, n1, s2, n2;
-            fifo.prepareToWrite (1, s1, n1, s2, n2);
-            if (n1 <= 0) break;
-            makeNext (slots[(size_t) s1]);
-            fifo.finishedWrite (n1);
-            const uint32_t before = gen.load();
-            checkSettings();
-            if (gen.load() != before) break;     // settings moved on: stop filling with stale items
-        }
-        wait (15);
+        std::lock_guard<std::mutex> l (urgentMutex);
+        if (! sync || urgentState.load() == 0) { ut = urgentText; urgentText = {}; }
+    }
+    if (ut.isNotEmpty())
+    {
+        int expected = 0;
+        while (! threadShouldExit() && ! urgentState.compare_exchange_strong (expected, 1)) { expected = 0; if (sync) return; wait (2); }
+        auto words = G2P::get().text (ut.toStdString(), (Lang) L);
+        buildUtterance (words, urgent, ut.toStdString());
+        urgent.gen = gen.load();
+        urgentState.store (2);
+    }
+    while (fifo.getFreeSpace() > 0 && (sync || ! threadShouldExit()))
+    {
+        int s1, n1, s2, n2;
+        fifo.prepareToWrite (1, s1, n1, s2, n2);
+        if (n1 <= 0) break;
+        makeNext (slots[(size_t) s1]);
+        fifo.finishedWrite (n1);
+        const uint32_t before = gen.load();
+        checkSettings();
+        if (gen.load() != before) break;     // settings moved on: stop filling with stale items
     }
 }
 

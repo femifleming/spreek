@@ -386,6 +386,7 @@ void SpraakProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 
     plan->lang = I ("lang"); plan->source = I ("source"); plan->listNum = I ("list"); plan->order = I ("order");
     plan->discardStale();
+    plan->pump();   // synchronous planner (offline tests only; a no-op with the planner thread)
     if (I ("micro") != lastMicro) updateTuning();
 
     // ---- events ----

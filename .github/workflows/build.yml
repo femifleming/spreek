@@ -62,7 +62,7 @@ jobs:
           echo "== SpraakFull"; $RUN "$(find_exe SpraakFull)"
           echo "== SpraakShot"; $RUN "$(find_exe SpraakShot)" out
           echo "== SpreekHostCheck (the built VST3s loaded like a DAW)"
-          V1="$(find build -name 'Spreekbuis.vst3' -maxdepth 6 | head -n 1)"; V2="$(find build -name 'Spraakmaker.vst3' -maxdepth 6 | head -n 1)"
+          V1="$(find build -path '*Release*' -name 'Spreekbuis.vst3' | head -n 1)"; V2="$(find build -path '*Release*' -name 'Spraakmaker.vst3' | head -n 1)"
           $RUN "$(find_exe SpreekHostCheck)" "$V1" "$V2"
 
       - name: Package
