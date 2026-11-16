@@ -10,6 +10,12 @@ Output (the folder Spreekbuis reads):
 with nl/<id>.wav (48 kHz mono 16-bit), en/<id>.wav (the English gloss) and manifest.json (word onsets).
 
 Engines, best first (chosen per language; --engine forces one):
+    voxtral  Voxtral-4B-TTS (Mistral, 2026): a speech language model with native Dutch voices nl_male / nl_female, 24 kHz,
+             run locally with mlx-audio on Apple Silicon Macs only. `python3 tools/render.py --setup-voxtral` makes a venv
+             with mlx-audio in the data folder and fetches mlx-community/Voxtral-4B-TTS-2603-mlx-4bit (~2.5 GB) into
+             <datadir>/hf; an existing install is reused: VOXTRAL_PYTHON, HF_HOME, the Tongval venv
+             (~/tongval/tools/venv-voxtral + tools/hf). RTF ~0.8: both banks take about an hour. English glosses come
+             from the next engine that has English (Piper lessac).
     piper    neural voices (VITS), the same on every OS: nl_NL-pim-medium (the man), nl_BE-nathalie-medium (the woman),
              en_US-lessac-medium for the English glosses. `python3 tools/render.py --setup-piper` makes a venv with
              piper-tts in the data folder and downloads those three voices from the rhasspy/piper-voices Hugging Face
@@ -261,6 +267,55 @@ class Piper(Engine):
                 subprocess.run([self.binary, "--model", j["model"], "--output_file", j["out"]], input=j["text"].encode("utf-8"), check=True, capture_output=True)
 
 
+VOXTRAL_REPO = "mlx-community/Voxtral-4B-TTS-2603-mlx-4bit"
+
+
+class Voxtral(Engine):
+    """Voxtral-4B-TTS through a Python that has mlx-audio (macOS Apple Silicon); one process for all clips."""
+    name = "voxtral"
+    def __init__(self):
+        self.python = None; self.hf = None
+        if sys.platform != "darwin" or os.uname().machine != "arm64": return
+        for cand in [os.environ.get("VOXTRAL_PYTHON"), data_root() / "voxtral" / "venv" / "bin" / "python",
+                     Path.home() / "tongval" / "tools" / "venv-voxtral" / "bin" / "python"]:
+            if cand and Path(cand).exists() and subprocess.run([str(cand), "-I", "-c", "import mlx_audio"], capture_output=True).returncode == 0:
+                self.python = Path(cand); break
+        for hf in [os.environ.get("HF_HOME"), data_root() / "hf", Path.home() / "tongval" / "tools" / "hf"]:
+            if hf and (Path(hf) / "hub" / ("models--" + VOXTRAL_REPO.replace("/", "--"))).is_dir():
+                self.hf = Path(hf); break
+    def available(self): return self.python is not None and self.hf is not None
+    def voices(self): return [("nl_male", "nl-NL", "m"), ("nl_female", "nl-NL", "f")]
+    def speak_many(self, jobs):   # [(voice, text, out)]
+        jf = Path(tempfile.mkstemp(suffix=".json")[1])
+        jf.write_text(json.dumps([{"voice": v, "text": t, "out": str(o)} for v, t, o in jobs]), encoding="utf-8")
+        env = dict(os.environ, HF_HOME=str(self.hf))
+        subprocess.run([str(self.python), "-I", str(HERE / "voxtral_render.py"), str(jf)], check=True, env=env)
+        jf.unlink()
+
+
+def setup_voxtral():
+    """A venv with mlx-audio in the data folder (unless one exists) and the Voxtral weights (~2.5 GB)."""
+    if sys.platform != "darwin" or os.uname().machine != "arm64":
+        print("Voxtral runs through MLX: Apple Silicon Macs only (use --setup-piper elsewhere)."); return 1
+    root = data_root(); root.mkdir(parents=True, exist_ok=True)
+    v = Voxtral()
+    py = v.python
+    if py is None:
+        venv = root / "voxtral" / "venv"
+        print("creating %s and installing mlx-audio (a few minutes)" % venv)
+        subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True)
+        py = venv / "bin" / "python"
+        subprocess.run([str(py), "-m", "pip", "install", "-q", "mlx-audio", "numpy", "huggingface_hub"], check=True)
+    else:
+        print("mlx-audio found in %s" % py)
+    hf = v.hf or (root / "hf")
+    if v.hf is None:
+        print("downloading %s into %s (~2.5 GB)" % (VOXTRAL_REPO, hf))
+        subprocess.run([str(py), "-I", "-c", "import os; from huggingface_hub import snapshot_download; snapshot_download('%s')" % VOXTRAL_REPO],
+                       check=True, env=dict(os.environ, HF_HOME=str(hf)))
+    print("Voxtral ready: python %s, weights in %s" % (py, hf)); return 0
+
+
 def setup_piper():
     """A venv with piper-tts in the data folder (unless a Python with piper exists already) and the three voices."""
     root = data_root(); root.mkdir(parents=True, exist_ok=True)
@@ -296,6 +351,9 @@ class Espeak(Engine):
 def engines(name):
     """Candidate engines in order of preference (best first), limited to one with --engine."""
     out = []
+    if name in ("auto", "voxtral"):
+        v = Voxtral()
+        if v.available(): out.append(v)
     if name in ("auto", "piper"):
         p = Piper()
         if p.available(): out.append(p)
@@ -328,12 +386,14 @@ def main():
     ap.add_argument("--female", action="store_true"); ap.add_argument("--force", action="store_true"); ap.add_argument("--stories", action="store_true")
     ap.add_argument("--engine", default="auto"); ap.add_argument("--voice"); ap.add_argument("--items")
     ap.add_argument("--setup-piper", action="store_true", help="install piper-tts in a venv and download the Piper voices")
+    ap.add_argument("--setup-voxtral", action="store_true", help="macOS Apple Silicon: install mlx-audio in a venv and fetch Voxtral-4B-TTS (~2.5 GB)")
     ap.add_argument("--probe", action="store_true", help="print the engines that would be used and exit (0 = Piper)")
     a = ap.parse_args()
     if a.setup_piper: setup_piper(); return 0
+    if a.setup_voxtral: return setup_voxtral()
     cands = engines(a.engine)
     if not cands:
-        print("no speech engine found (piper: tools/render.py --setup-piper; macOS: say; Windows: PowerShell/System.Speech; Linux: espeak-ng).\n"
+        print("no speech engine found (voxtral / piper: tools/render.py --setup-voxtral / --setup-piper; macOS: say; Windows: PowerShell/System.Speech; Linux: espeak-ng).\n"
               "Spreekbuis still speaks with its built-in formant voice."); return 1
     # the Dutch voice from the best engine that has one; the English gloss from the best engine that has English
     nl = en = None; nl_eng = en_eng = None
@@ -347,7 +407,7 @@ def main():
             if v: en, en_eng = v, e
     if a.probe:
         print("Dutch: %s / %s; English: %s / %s" % (nl_eng.name if nl_eng else "-", nl[0] if nl else "-", en_eng.name if en_eng else "-", en[0] if en else "-"))
-        return 0 if nl_eng and nl_eng.name == "piper" else 2
+        return 0 if nl_eng and nl_eng.name in ("voxtral", "piper") else 2
     if nl is None:
         print("%s: no Dutch voice installed (see the top of this file)." % cands[0].name); return 1
     print("Dutch voice: %s (%s) - English: %s (%s)" % (nl[0], nl_eng.name, en[0] if en else "(none)", en_eng.name if en_eng else "-"))
@@ -397,7 +457,7 @@ def main():
         rec = dict(it); rec.update(file="nl/%s.wav" % fid, en_file="en/%s.wav" % fid, onsets=ons, frames=len(x))
         out_items.append(rec)
     shutil.rmtree(tmp, ignore_errors=True)
-    manifest.write_text(json.dumps({"version": 1, "rate": 48000, "voice": nl_eng.name + ":" + nl[0], "voiceName": nl[0] + (" (Piper)" if nl_eng.name == "piper" else ""),
+    manifest.write_text(json.dumps({"version": 1, "rate": 48000, "voice": nl_eng.name + ":" + nl[0], "voiceName": nl[0] + (" (Piper)" if nl_eng.name == "piper" else " (Voxtral)" if nl_eng.name == "voxtral" else ""),
                                     "enVoice": en[0] if en else "", "items": out_items}, ensure_ascii=False, sort_keys=True), encoding="utf-8")
     print("done: %d items -> %s" % (len(out_items), root))
     return 0

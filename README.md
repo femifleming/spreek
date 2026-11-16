@@ -15,9 +15,9 @@ Two Dutch speech instruments in one bundle, VST3 / AU / standalone for macOS, Wi
 **Install (macOS):** `brew tap femifleming/tap && brew install --cask femifleming/tap/spreekbuis femifleming/tap/spraakmaker` —
 or download `spreek-macOS.zip`, `spreek-Windows.zip` or `spreek-Linux.tar.gz` from the
 [releases](https://github.com/femifleming/spreek/releases) (both plug-ins, the apps and the manuals in every download).
-**Neural Dutch voices for Spreekbuis** (any OS, needs Python 3): `python3 Spreekbuis/tools/render.py --setup-piper` once (installs
-[Piper](https://github.com/rhasspy/piper) and the pim / nathalie / lessac voices), then `Spreekbuis/tools/render.sh` (and
-`--female`) to record the course; see *The voice* below.
+**Neural Dutch voices for Spreekbuis** (needs Python 3): `python3 Spreekbuis/tools/render.py --setup-piper` once (any OS: installs
+[Piper](https://github.com/rhasspy/piper) and the pim / nathalie / lessac voices) and, on an Apple Silicon Mac, `--setup-voxtral`
+(Voxtral-4B-TTS, the best Dutch, ~2.5 GB); then `Spreekbuis/tools/render.sh` (and `--female`) to record the course; see *The voice* below.
 
 **Manuals:** [Spreekbuis Manual.pdf](docs/Spreekbuis%20Manual.pdf) · [Spraakmaker Manual.pdf](docs/Spraakmaker%20Manual.pdf)
 (sources: `spreekbuis/docs/manual.html`, `spraakmaker/docs/manual.html`; `scripts/manuals.sh` re-prints them with Chrome).
@@ -38,6 +38,7 @@ g/ch, hard Holland /x/ to soft Flemish /ɣ/), **Orca** (UDP on 127.0.0.1:49162: 
 
 | | engine | voices |
 |---|---|---|
+| macOS (Apple Silicon) | **Voxtral-4B-TTS** (Mistral, 2026: a speech language model with native Dutch voices, 24 kHz, run locally with [mlx-audio](https://github.com/Blaizzy/mlx-audio); `python3 tools/render.py --setup-voxtral` makes the venv and fetches `mlx-community/Voxtral-4B-TTS-2603-mlx-4bit`, ~2.5 GB; the Tongval install is reused). About an hour for both banks (RTF ~0.8) | `nl_male` (the man), `nl_female` (the woman); the English glosses come from Piper |
 | all | **Piper** neural voices (`python3 tools/render.py --setup-piper`: a venv with `piper-tts` plus the voices from [rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices), ~200 MB, into the data folder; an existing install is reused: `PIPER_PYTHON`, `PIPER_VOICES`, the Tongval venv, a `piper` binary) | `nl_NL-pim-medium` (the man), `nl_BE-nathalie-medium` (the woman), `en_US-lessac-medium` for the English glosses |
 | macOS | `tools/render.swift` (AVSpeechSynthesizer, exact word onsets) | the best installed Apple Dutch voice: Premium, then Enhanced, then compact. Install better ones in System Settings → Accessibility → Spoken Content → Manage Voices → Dutch (Xander Enhanced, Claire Premium) |
 | Windows | `python tools\render.py` (System.Speech / SAPI) | an installed Dutch voice (Settings → Time & language → Speech → Manage voices) |
