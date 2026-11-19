@@ -1,40 +1,51 @@
-<p align="center"><img src="spreekbuis/Resources/icon.png" width="96">&nbsp;&nbsp;&nbsp;<img src="spraakmaker/Resources/icon.png" width="96"></p>
+<p align="center"><img src="Resources/icon.png" width="96"></p>
 
 # spreek
 
-Two Dutch speech instruments in one bundle, VST3 / AU / standalone for macOS, Windows and Linux:
+**Spreekbuis** — Dutch as an instrument, with a speech computer inside. One plug-in (VST3 / VST2 / AU / standalone) for
+macOS, Windows and Linux.
 
-- **spreekbuis** — Dutch as an instrument: the words and sentences of the Tongval course as a tempo-synced lesson loop
-  (call and response, karaoke, a MIDI note per word), a granular word cloud with whispered English glosses, a formant pad
-  whose XY chart is the Dutch vowel chart, a g/ch generator, and an Orca UDP bridge.
-- **spraakmaker** — a speech computer: an 80s-style Klatt formant synthesizer that turns text into English or Dutch speech
-  (CMUdict English, rule-based Dutch), with CLASSIC / VOCODER / VOSINGER modes, microtonal tunings, a pixel tutor on the
-  OLED and 100 presets. An homage **after the Phonemer by moddict** (a Eurorack module): the layout follows the module, the
-  code, the voice and the Dutch are original, and no moddict names or marks are used on the panel. Not affiliated with moddict.
+<p align="center"><img src="docs/img/after/spreekbuis-2.0-1-loop.png" width="760"></p>
 
-**Install (macOS):** `brew tap femifleming/tap && brew install --cask femifleming/tap/spreekbuis femifleming/tap/spraakmaker` —
-or download `spreek-macOS.zip`, `spreek-Windows.zip` or `spreek-Linux.tar.gz` from the
-[releases](https://github.com/femifleming/spreek/releases) (both plug-ins, the apps and the manuals in every download).
-**Neural Dutch voices for Spreekbuis** (needs Python 3): `python3 Spreekbuis/tools/render.py --setup-piper` once (any OS: installs
-[Piper](https://github.com/rhasspy/piper) and the pim / nathalie / lessac voices) and, on an Apple Silicon Mac, `--setup-voxtral`
-(Voxtral-4B-TTS, the best Dutch, ~2.5 GB); then `Spreekbuis/tools/render.sh` (and `--female`) to record the course; see *The voice* below.
+Until 1.0 this repository shipped two plug-ins, Spreekbuis and Spraakmaker. Since **2.0** they are one instrument in the
+design language of the faltung suite, in Spreekbuis's colours (dark field, orange, navy, karaoke yellow). Its layers, each
+a page of the window, mixed freely from one mixer:
 
-**Manuals:** [Spreekbuis Manual.pdf](docs/Spreekbuis%20Manual.pdf) · [Spraakmaker Manual.pdf](docs/Spraakmaker%20Manual.pdf)
-(sources: `spreekbuis/docs/manual.html`, `spraakmaker/docs/manual.html`; `scripts/manuals.sh` re-prints them with Chrome).
+- **loop** (lp1) — the Tongval lesson as tempo-synced call and response: karaoke, the English whispered in the answer bars,
+  a MIDI out note at every word onset.
+- **wolk** (wk2) — a granular cloud of the words you know, plus translation grains through a 12-band noise vocoder.
+- **klinker** (kl3) — a formant filter steered by the Dutch vowel chart (i y u ɪ ʏ e ø o ə ɔ ɛ a ɑ, the glides ɛi œy ʌu);
+  sources saw, noise, the input — or the loop, the cloud, the speech computer or all of them heard through it.
+- **g** (gg4) — the Dutch g/ch, hard Holland /x/ to soft Flemish /ɣ/.
+- **spraak** (sp5) — the speech computer (Spraakmaker 1.0): an 80s-style Klatt formant synthesizer that turns text into
+  Dutch or English speech (CMUdict English, rule-based Dutch); sources dict, alpha, keyb, markov, lettr, 99 lists and **les**
+  (the word bank); triggers auto / trig / gate / ph.trg / ph.gate; engines classic (up to 4 voices), vocoder, vosinger
+  (chords); tunings equal / just / pythag / meantn / 24-tet / Scala; Sanne, the pixel tutor, mouths the phonemes.
+- **fx** (fx6) — bitcrush, width, ping-pong echo, reverb: on the speech computer, or on everything.
+- **mod** (md7) — four LFOs, four matrix slots, three macros; sources include every word the bank says, the layers'
+  loudness and the vowel chart; destinations every layer.
+- **orca** (oc8) — UDP on 127.0.0.1:49162: `;fiets` speaks a word, `;g7` fires the g, `;vui` hits a vowel,
+  `;=hallo_jij` makes the speech computer say it, `;!` triggers it.
 
-## spreekbuis
+They work on each other: one voice switch (man / vrouw) for the recorded words, the vowel chart and the speech computer; one
+clock; the speech computer can **answer the loop** (it repeats each item in the answer bars, or says its English), the
+loop's **word onsets trigger** it (with or without their notes), it can **read the lesson** (source les), the vocoder can
+**listen to the bank's voice** (vosinger sings the lesson in chords), and the keys can play any layer or all of them.
 
-<p align="center"><img src="spreekbuis/docs/img/window.png" width="720"></p>
+**Old sessions.** Spreekbuis 2.0 keeps Spreekbuis 1.0's plug-in and parameter IDs, so 1.0 sessions open unchanged.
+Spraakmaker 1.0 states, preset slots and host preset files (.vstpreset, .aupreset, .fxp) import into the speech computer
+(preset menu → *open of importeer*). Spraakmaker 1.0 itself is no longer built; its last release is
+[v1.0.0](https://github.com/femifleming/spreek/releases/tag/v1.0.0).
 
-Layers, mixed freely: **Loop** (the lesson as call & response, with the English whispered in the answer bars and a MIDI out
-note at every word onset), **Wolk** (a granular cloud of the words you know, plus translation grains through a 12-band noise
-vocoder), **Klinker** (a formant filter steered by the Dutch vowel chart i y u ɪ ʏ e ø o ə ɔ ɛ a ɑ with the diphthong glides
-ɛi, œy, ʌu; sources saw, noise, the input, or the loop and the cloud heard through it), **Stem** (man / woman), **G** (the Dutch
-g/ch, hard Holland /x/ to soft Flemish /ɣ/), **Orca** (UDP on 127.0.0.1:49162: `;fiets` speaks a word, `;g7` fires the g,
-`;vui` hits a vowel) and **Toetsen** (MIDI notes play words, the vowel, the g or everything).
+**Install (macOS):** `brew tap femifleming/tap && brew install --cask femifleming/tap/spreekbuis` — or download
+`spreek-macOS.zip`, `spreek-Windows.zip` or `spreek-Linux.tar.gz` from the
+[releases](https://github.com/femifleming/spreek/releases) (the plug-in in every format, the app, the manual and the voice tools).
+
+**Manual:** [Spreekbuis Manual.pdf](docs/Spreekbuis%20Manual.pdf) (source `docs/manual.html`; `scripts/manuals.sh` re-prints it with Chrome).
+Before / after: `docs/img/before/` (1.0's two windows), `docs/img/after/` (every page of 2.0).
 
 **The voice.** Spreekbuis plays recorded audio of every course item. Render that voice bank once with
-`spreekbuis/tools/render.sh` (`--female` for the woman's bank, `--force` to redo everything). Engines, best first:
+`tools/render.sh` (`--female` for the woman's bank, `--force` to redo everything). Engines, best first:
 
 | | engine | voices |
 |---|---|---|
@@ -45,35 +56,27 @@ g/ch, hard Holland /x/ to soft Flemish /ɣ/), **Orca** (UDP on 127.0.0.1:49162: 
 | Linux | `python3 tools/render.py` | `espeak-ng -v nl` |
 
 Every clip is levelled to the same speech loudness (−16 dBFS) whatever the engine, so the layers balance the same with every voice.
-Without a rendered bank the plug-in is never silent: it speaks every item with the **built-in formant voice** it shares with
-Spraakmaker (made once into `voice-builtin/` on first use). Data folder: `~/Library/Application Support/Spreekbuis` (macOS),
+Without a rendered bank the plug-in is never silent: it speaks every item with the **built-in formant voice** that is also
+its speech computer (made once into `voice-builtin/` on first use). Data folder: `~/Library/Application Support/Spreekbuis` (macOS),
 `%APPDATA%\Spreekbuis` (Windows), `~/.config/Spreekbuis` (Linux). On the Mac that has Tongval, only the items you have learned
 are offered (plus the current lesson) and plays are logged for Tongval; elsewhere **Alle items** plays the whole course.
-
-## spraakmaker
-
-<p align="center"><img src="spraakmaker/docs/img/ui_home.png" width="420"></p>
-
-Knobs Pitch / Formant / Intonation / Brightness / Speed / Emotion and three macros; Data encoder (turn = edit or browse
-presets, push = load or trigger, Shift + push = save); F1–F4 pages TRG/SRC · VOICE · FX · MOD on the OLED; the round button
-triggers; type on the computer keyboard and press Enter to make it say that. Jacks map to side-chain inputs (carrier,
-modulator), MIDI notes (pitch, trigger in), MIDI out (word / phoneme triggers) and four modulation slots. Sources DICT, ALPHA,
-KEYB, MARKOV, LETTR and 99 editable LISTs; triggers AUTO (tempo-synced or free), TRIG, GATE, PH.TRG, PH.GATE; engines
-CLASSIC (up to 4 voices), VOCODER (own carriers or the side-chain), VOSINGER (chords); tunings EQUAL / JUST / PYTHAG /
-MEANTN / 24-TET / a Scala `.scl`; bitcrush, width, ping-pong delay, reverb.
 
 ## Build
 
     cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release        # JUCE 9.0.5: ./JUCE, JUCE_DIR, ~/disting-ex-plugins/JUCE, or fetched
-    cmake --build build --target spreek_all                   # Spreekbuis + Spraakmaker (VST3, Standalone; AU on macOS)
-    cmake --build build --target SBTest SpraakTest SpraakFull SpraakShot SpreekHostCheck   # the tests (see .github/workflows/build.yml)
+    cmake --build build --target Spreekbuis_All               # VST3, VST2, Standalone; AU on macOS
+    cmake --build build --target SBTest SpraakTest SpraakFull SpreekTest SpreekHostCheck   # the tests (see .github/workflows/build.yml)
 
-`-DSPREEK_COPY_AFTER_BUILD=ON` installs the plug-ins into the user plug-in folders; macOS universal builds add
-`-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"`. Linux needs the usual JUCE packages (see the workflow). Windows: Visual Studio 2022.
-The shared speech code (text → phonemes, prosody, the Klatt voice) is in `common/`; the English dictionary is CMUdict
-(`common/data/LICENSE.cmudict`).
+`SBTest` checks the word bank's layers, `SpraakFull` the speech computer feature by feature, `SpreekTest` what joins them,
+Spreekbuis 1.0 / Spraakmaker 1.0 states (`tests/fixtures`), the state round trip, defaults, stereo and the play log
+(`SpreekTest --shots <dir>` draws every page), `SpreekHostCheck` loads the built VST3 / VST2 / AU like a DAW.
+`-DSPREEK_COPY_AFTER_BUILD=ON` installs the plug-in into the user plug-in folders; macOS universal builds add
+`-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"`. VST2 is built with the FST headers (`third_party/vst2-fst`; `-DSPREEK_BUILD_VST2=OFF`
+to skip). Linux needs the usual JUCE packages (see the workflow). Windows: Visual Studio 2022. The speech code (text →
+phonemes, prosody, the Klatt voice) is in `common/`; the English dictionary is CMUdict (`common/data/LICENSE.cmudict`).
 
 ## Licence
 
-AGPL-3.0 (see LICENSE). CMUdict is BSD-licensed. Spraakmaker is an independent homage after the Phonemer by moddict; it is not
-affiliated with, endorsed by or a product of moddict.
+AGPL-3.0 (see LICENSE). CMUdict is BSD-licensed. Inter and IBM Plex Mono: SIL Open Font Licence (`Resources/fonts`). FST
+(VST2 headers): see `third_party/vst2-fst`. The speech computer is an independent homage after the Phonemer by moddict; it is
+not affiliated with, endorsed by or a product of moddict.

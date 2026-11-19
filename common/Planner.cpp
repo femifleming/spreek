@@ -109,7 +109,7 @@ void buildUtterance (const std::vector<WordPh>& words, Utterance& u, const std::
 }
 
 // ------------------------------------------------------------------ planner
-Planner::Planner (juce::File dataDir) : juce::Thread ("Spraakmaker planner"), dir (dataDir)
+Planner::Planner (juce::File dataDir, juce::File legacyDir) : juce::Thread ("Spreekbuis planner"), dir (dataDir), legacy (legacyDir)
 {
     dir.createDirectory();
     ensureLists();
@@ -120,6 +120,12 @@ Planner::~Planner() { stopThread (2000); }
 void Planner::ensureLists()
 {
     auto ld = listsDir();
+    if (! ld.isDirectory() && legacy != juce::File() && legacy.getChildFile ("lists").isDirectory())
+    {
+        // the lists somebody wrote in Spraakmaker 1.0 come along (copied, the old folder stays as it is)
+        ld.createDirectory();
+        for (auto& f : legacy.getChildFile ("lists").findChildFiles (juce::File::findFiles, false, "list*.txt")) f.copyFileTo (ld.getChildFile (f.getFileName()));
+    }
     if (! ld.isDirectory())
     {
         ld.createDirectory();
@@ -160,6 +166,12 @@ void Planner::setList (int n, const juce::StringArray& entries)
     gen.fetch_add (1);
 }
 
+void Planner::setBankTexts (std::shared_ptr<const BankTexts> t)
+{
+    { std::lock_guard<std::mutex> l (bankMutex); bankTexts = std::move (t); }
+    bankVersion.fetch_add (1);
+}
+
 void Planner::setKeyboardText (const juce::String& t) { std::lock_guard<std::mutex> l (textMutex); if (t != keyboardText) kbVersion.fetch_add (1); keyboardText = t; }
 juce::String Planner::getKeyboardText() const { std::lock_guard<std::mutex> l (textMutex); return keyboardText; }
 
@@ -180,6 +192,17 @@ bool Planner::popUrgent (Utterance& out)
     urgentState.store (0);
     urgentRequested.store (false);
     return true;
+}
+
+bool Planner::popItem (Utterance& out, int item)
+{
+    if (itemMade.load() != item) return false;
+    int expected = 2;
+    if (! itemState.compare_exchange_strong (expected, 3)) return false;
+    const bool ok = itemMade.load() == item;
+    if (ok) std::memcpy (&out, &itemUtt, sizeof (Utterance));
+    itemState.store (2);      // it stays ready: the same item may be asked for again
+    return ok;
 }
 
 bool Planner::pop (Utterance& out)
@@ -219,8 +242,9 @@ void Planner::setSynchronous (bool on)
         // forget whatever the thread did before it was stopped (how much depends on timing): queue, generation,
         // settings memory and the random source start from the same state in every run
         fifo.reset(); gen.store (1);
-        lastLang = lastSource = lastList = lastOrder = -1; lastKeyb = {}; listPos = alphaPos = 0;
+        lastLang = lastSource = lastList = lastOrder = lastLesSet = -1; lastBankVersion = bankVersion.load(); lastKeyb = {}; listPos = alphaPos = 0;
         { std::lock_guard<std::mutex> l (urgentMutex); urgentText = {}; }
+        itemWanted.store (-1); itemMade.store (-1); itemState.store (0); itemLang = -1;
         urgentState.store (0); urgentRequested.store (false);
         rng.seed (1234567u);
     }
@@ -232,41 +256,78 @@ void Planner::run()
 {
     while (! threadShouldExit())
     {
-        step();
+        { std::lock_guard<std::mutex> l (stepMutex); step (false); }
         wait (15);
     }
 }
 
-void Planner::step()
+void Planner::step (bool sync)
 {
     G2P::get().preload();
     auto checkSettings = [this]() -> int {
-        const int L = lang.load(), S = source.load(), N = listNum.load(), O = order.load();
+        const int L = lang.load(), S = source.load(), N = listNum.load(), O = order.load(), LS = lesSet.load();
+        const uint32_t BV = bankVersion.load();
         const juce::String kb = getKeyboardText();
-        if (L != lastLang || S != lastSource || N != lastList || O != lastOrder || (S == (int) Source::Keyb && kb != lastKeyb))
+        if (L != lastLang || S != lastSource || N != lastList || O != lastOrder || (S == (int) Source::Keyb && kb != lastKeyb)
+            || (S == (int) Source::Les && (LS != lastLesSet || BV != lastBankVersion)))
         {
-            lastLang = L; lastSource = S; lastList = N; lastOrder = O; lastKeyb = kb;
+            lastLang = L; lastSource = S; lastList = N; lastOrder = O; lastKeyb = kb; lastLesSet = LS; lastBankVersion = BV;
             listPos = 0; alphaPos = 0;
+            rng.seed (1234567u);     // the same settings say the same things in the same order (a bounce repeats)
             gen.fetch_add (1);
         }
         return L;
     };
-    const bool sync = synchronous.load();
     const int L = checkSettings();
-    // urgent text (synchronous mode: only when the urgent slot is free; otherwise it waits for the next pump)
+    // urgent text (typed, Enter). A newer text replaces one that was made ready but never spoken.
     juce::String ut;
     {
         std::lock_guard<std::mutex> l (urgentMutex);
-        if (! sync || urgentState.load() == 0) { ut = urgentText; urgentText = {}; }
+        ut = urgentText; urgentText = {};
     }
     if (ut.isNotEmpty())
     {
-        int expected = 0;
-        while (! threadShouldExit() && ! urgentState.compare_exchange_strong (expected, 1)) { expected = 0; if (sync) return; wait (2); }
+        for (;;)
+        {
+            int expected = 0;
+            if (urgentState.compare_exchange_strong (expected, 1)) break;
+            expected = 2;
+            if (urgentState.compare_exchange_strong (expected, 1)) break;
+            if (sync || threadShouldExit()) return;     // (state 3: the audio thread is copying; never when called inline)
+            wait (1);
+        }
         auto words = G2P::get().text (ut.toStdString(), (Lang) L);
         buildUtterance (words, urgent, ut.toStdString());
         urgent.gen = gen.load();
         urgentState.store (2);
+    }
+    // one item of the word bank, asked for by the audio thread (the lesson loop's echo)
+    if (const int want = itemWanted.load(); want >= 0 && (want != itemMade.load() || L != itemLang || bankVersion.load() != itemBankVersion))
+    {
+        const uint32_t bv = bankVersion.load();
+        std::string text;
+        if (auto bt = getBankTexts(); bt && want < (int) bt->items.size())
+            text = (L == (int) Lang::EN && ! bt->items[(size_t) want].second.empty()) ? bt->items[(size_t) want].second : bt->items[(size_t) want].first;
+        if (! text.empty())
+        {
+            bool mine = false;
+            for (int tries = 0; tries < 50 && ! mine; ++tries)
+            {
+                int expected = 0;
+                if (itemState.compare_exchange_strong (expected, 1)) { mine = true; break; }
+                expected = 2;
+                if (itemState.compare_exchange_strong (expected, 1)) { mine = true; break; }
+                if (sync || threadShouldExit()) break;
+                wait (1);
+            }
+            if (mine)
+            {
+                buildUtterance (G2P::get().text (text, (Lang) L), itemUtt, text);
+                itemLang = L; itemBankVersion = bv;
+                itemMade.store (want);
+                itemState.store (2);
+            }
+        }
     }
     while (fifo.getFreeSpace() > 0 && (sync || ! threadShouldExit()))
     {
@@ -370,7 +431,7 @@ void Planner::makeNext (Utterance& u)
 {
     const uint32_t key = settingsKey();   // taken before the settings are read, so a change mid-way makes it stale
     const Lang L = (Lang) juce::jlimit (0, 1, lang.load());
-    const Source S = (Source) juce::jlimit (0, 5, source.load());
+    const Source S = (Source) juce::jlimit (0, 6, source.load());
     std::string text;
     std::vector<WordPh> words;
     switch (S)
@@ -401,6 +462,23 @@ void Planner::makeNext (Utterance& u)
             if (entries.isEmpty()) { text = L == Lang::NL ? "lege lijst" : "empty list"; break; }
             const int i = order.load() == 1 ? (int) (rng() % (unsigned) entries.size()) : listPos++ % entries.size();
             text = entries[i].toStdString();
+            break;
+        }
+        case Source::Les:
+        {
+            // the word bank's lesson (the list the loop plays), in order or shuffled; Dutch, or the English gloss
+            auto bt = getBankTexts();
+            const std::vector<int>* list = nullptr; std::vector<int> all;
+            if (bt)
+            {
+                list = &bt->lesson[juce::jlimit (0, 3, lesSet.load())];
+                if (list->empty()) list = &bt->lesson[3];
+                if (list->empty()) { all.resize (bt->items.size()); for (size_t k = 0; k < all.size(); ++k) all[k] = (int) k; list = &all; }
+            }
+            if (list == nullptr || list->empty()) { text = L == Lang::NL ? "geen woorden" : "no words"; break; }
+            const int i = order.load() == 1 ? (int) (rng() % (unsigned) list->size()) : listPos++ % (int) list->size();
+            const auto& it = bt->items[(size_t) (*list)[(size_t) i]];
+            text = (L == Lang::EN && ! it.second.empty()) ? it.second : it.first;
             break;
         }
     }

@@ -48,7 +48,7 @@ jobs:
           cmake -B build $EXTRA -DCMAKE_BUILD_TYPE=Release -DSPREEK_LTO=OFF
 
       - name: Build
-        run: cmake --build build --config Release --parallel 4 --target spreek_all SBTest SpraakTest SpraakShot SpraakFull SpreekHostCheck
+        run: cmake --build build --config Release --parallel 4 --target Spreekbuis_All SBTest SpraakTest SpraakFull SpreekTest SpreekHostCheck
 
       - name: Test
         shell: bash
@@ -57,13 +57,23 @@ jobs:
           RUN=""
           if [ "$RUNNER_OS" = "Linux" ]; then RUN="xvfb-run -a"; fi
           mkdir -p out
-          echo "== SBTest (the built-in voice is rendered on first use)"; $RUN "$(find_exe SBTest)"
+          echo "== SBTest (the word bank's layers; the built-in voice is rendered on first use)"; $RUN "$(find_exe SBTest)"
           echo "== SpraakTest"; $RUN "$(find_exe SpraakTest)" out
-          echo "== SpraakFull"; $RUN "$(find_exe SpraakFull)"
-          echo "== SpraakShot"; $RUN "$(find_exe SpraakShot)" out
-          echo "== SpreekHostCheck (the built VST3s loaded like a DAW)"
-          V1="$(find build -path '*Release*' -name 'Spreekbuis.vst3' | head -n 1)"; V2="$(find build -path '*Release*' -name 'Spraakmaker.vst3' | head -n 1)"
-          $RUN "$(find_exe SpreekHostCheck)" "$V1" "$V2"
+          echo "== SpraakFull (the speech computer)"; $RUN "$(find_exe SpraakFull)"
+          echo "== SpreekTest (what joins them, old sessions, state, stereo, the play log)"; $RUN "$(find_exe SpreekTest)"
+          $RUN "$(find_exe SpreekTest)" --shots out/shots
+          echo "== SpreekHostCheck (the built plug-in loaded like a DAW: VST3, VST2, AU; stereo)"
+          V3="$(find build -path '*Release*' -name 'Spreekbuis.vst3' | head -n 1)"
+          V2="$(find build -path '*Release*/VST/*' \( -name 'Spreekbuis.vst' -o -name 'Spreekbuis.dll' -o -name 'Spreekbuis.so' \) | head -n 1)"
+          PLUGS=("$V3" "$V2")
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            mkdir -p ~/Library/Audio/Plug-Ins/Components
+            cp -R "$(find build -path '*Release*' -name 'Spreekbuis.component' | head -n 1)" ~/Library/Audio/Plug-Ins/Components/
+            killall -9 AudioComponentRegistrar 2>/dev/null || true
+            auval -v aumu Sprk Frkp | tail -n 5
+            PLUGS+=(~/Library/Audio/Plug-Ins/Components/Spreekbuis.component)
+          fi
+          $RUN "$(find_exe SpreekHostCheck)" "${PLUGS[@]}"
 
       - name: Package
         shell: bash

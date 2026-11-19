@@ -1,6 +1,6 @@
-// SpreekHostCheck — loads the BUILT plug-ins the way a DAW does and checks that they make sound.
-//   SpreekHostCheck file.vst3|file.component ...
-// For each file: instantiate (VST3 / AU), stereo main bus, 48 kHz / 512, host transport playing at 122 bpm.
+// SpreekHostCheck — loads the BUILT plug-ins the way a DAW does and checks that they make sound, in stereo.
+//   SpreekHostCheck file.vst3|file.vst|file.component ...
+// For each file: instantiate (VST3 / VST2 / AU), stereo main bus, 48 kHz / 512, host transport playing at 122 bpm.
 // Instruments get MIDI (kit notes 36-43, modules / synth: a note every half beat); effects get a drum-like
 // test signal. Prints peak / rms of the main output for: transport playing (no midi), midi notes, and the
 // first three programs. FAIL when the main output is silent.
@@ -21,6 +21,7 @@ struct Head : juce::AudioPlayHead
 };
 
 static int failures = 0;
+static double lastL = 0, lastR = 0, lastSide = 0;   // the last run, channel by channel
 
 static void run (juce::AudioPluginInstance& p, bool instrument, bool isKit, bool sendMidi, bool playing, double secs, float& peak, float& rms)
 {
@@ -29,7 +30,7 @@ static void run (juce::AudioPluginInstance& p, bool instrument, bool isKit, bool
     p.prepareToPlay (sr, bs);
     const int ch = std::max (p.getTotalNumInputChannels(), p.getTotalNumOutputChannels());
     juce::AudioBuffer<float> b (std::max (ch, 2), bs);
-    double sum = 0; juce::int64 n = 0; peak = 0;
+    double sum = 0, sl = 0, sr2 = 0, ss = 0; juce::int64 n = 0; peak = 0;
     const int total = (int) (secs * sr), every = (int) (sr * 60.0 / head.bpm / 2.0);
     juce::Random rnd (7);
     int note = 0;
@@ -56,13 +57,16 @@ static void run (juce::AudioPluginInstance& p, bool instrument, bool isKit, bool
                 }
         p.processBlock (b, m);
         for (int c = 0; c < 2; ++c)
-            for (int k = 0; k < bs; ++k) { const float x = b.getSample (c, k); sum += x * x; peak = std::max (peak, std::abs (x)); }
+            for (int k = 0; k < bs; ++k) { const float x = b.getSample (c, k); sum += x * x; peak = std::max (peak, std::abs (x)); (c == 0 ? sl : sr2) += x * x; }
+        for (int k = 0; k < bs; ++k) { const float d = 0.5f * (b.getSample (0, k) - b.getSample (1, k)); ss += d * d; }
         n += 2 * bs;
         head.samples += bs; head.ppq += bs / sr * head.bpm / 60.0;
         if (pos < 30 * bs) juce::Thread::sleep ((int) (bs * 1000.0 / sr));   // the first blocks at real-time pace, as a host delivers them (background threads catch up)
     }
     p.releaseResources();
     rms = (float) std::sqrt (sum / (double) std::max<juce::int64> (1, n));
+    const double half = (double) std::max<juce::int64> (1, n / 2);
+    lastL = std::sqrt (sl / half); lastR = std::sqrt (sr2 / half); lastSide = std::sqrt (ss / half);
 }
 
 int main (int argc, char** argv)
@@ -70,6 +74,9 @@ int main (int argc, char** argv)
     juce::ScopedJuceInitialiser_GUI gui;
     juce::AudioPluginFormatManager fm;
     fm.addFormat (std::make_unique<juce::VST3PluginFormat>());
+   #if JUCE_PLUGINHOST_VST
+    fm.addFormat (std::make_unique<juce::VSTPluginFormat>());
+   #endif
    #if JUCE_MAC
     fm.addFormat (std::make_unique<juce::AudioUnitPluginFormat>());
    #endif
@@ -102,7 +109,8 @@ int main (int argc, char** argv)
             std::cout << "  transport, no midi:  peak " << db (pk) << " dB  rms " << db (rm) << " dB\n";
             if (isKit || found[0]->name.endsWith ("kt2")) any |= pk > 1.0e-3f;
             run (*inst, true, isKit, true, false, 4.0, pk, rm);
-            std::cout << "  midi, stopped:       peak " << db (pk) << " dB  rms " << db (rm) << " dB\n";
+            std::cout << "  midi, stopped:       peak " << db (pk) << " dB  rms " << db (rm) << " dB  (L " << db ((float) lastL) << " / R " << db ((float) lastR) << " dB)\n";
+            if (inst->getTotalNumOutputChannels() < 2 || lastL < 1.0e-4 || lastR < 1.0e-4) { std::cout << "  FAIL not stereo: a channel is silent\n"; ++failures; }
             any |= pk > 1.0e-3f;
             if (pk <= 1.0e-3f) { std::cout << "  FAIL midi notes are silent\n"; ++failures; }
         }
@@ -120,6 +128,16 @@ int main (int argc, char** argv)
             std::cout << "  program " << pr << " \"" << inst->getProgramName (pr) << "\": peak " << db (pk) << " dB\n";
             if (pk <= 1.0e-3f && inst->getProgramName (pr) != "empty") { std::cout << "  FAIL program silent\n"; ++failures; }
         }
+        // a program whose sound is wide (the word cloud's spread): left and right must differ
+        for (int pr = 0; pr < inst->getNumPrograms(); ++pr)
+            if (inst->getProgramName (pr) == "Fluisterwolk")
+            {
+                inst->setCurrentProgram (pr);
+                juce::MessageManager::getInstance()->runDispatchLoopUntil (300);
+                run (*inst, instrument, isKit, true, true, 3.0, pk, rm);
+                std::cout << "  stereo (\"Fluisterwolk\"): L " << db ((float) lastL) << " dB, R " << db ((float) lastR) << " dB, side " << db ((float) lastSide) << " dB\n";
+                if (lastL < 1.0e-4 || lastR < 1.0e-4 || lastSide < 1.0e-4) { std::cout << "  FAIL not stereo\n"; ++failures; }
+            }
         if (! any) { std::cout << "  FAIL silent\n"; ++failures; }
     }
     std::cout << (failures == 0 ? "all good\n" : juce::String (failures) + " failures\n");
