@@ -638,7 +638,7 @@ typedef struct _fstRectangle {
 typedef struct _fstMidiKeyName {
   t_fstInt32 thisProgramIndex; /* always 0 ??? */
   t_fstInt32 thisKeyNumber;
-  char keyName[]; /* length: kVstMaxNameLen */
+  char keyName[64]; /* length: kVstMaxNameLen */
 } t_fstMidiKeyName;
 
 

@@ -27,9 +27,9 @@ case "$OS" in
             [ -e "$f" ] && codesign --force --deep -s - "$f"
         done ;;
     Windows)
-        cp "$A/VST/Spreekbuis.dll" "$A/Standalone/Spreekbuis.exe" "$P/" ;;
+        cp "$A"/VST/*Spreekbuis*.dll "$A/Standalone/Spreekbuis.exe" "$P/" ;;
     Linux)
-        cp "$A/VST/Spreekbuis.so" "$A/Standalone/Spreekbuis" "$P/" ;;
+        cp "$A"/VST/*Spreekbuis*.so "$A/Standalone/Spreekbuis" "$P/" ;;
 esac
 cp "$ROOT/docs/Spreekbuis Manual.pdf" "$OUT/"
 mkdir -p "$P/tools" "$P/data"
