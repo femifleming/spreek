@@ -1,7 +1,32 @@
-// Spreekbuis 2 — the window, in the design language of the faltung suite (flat fields, thin lines, folded strips,
-// parallelogram sliders, lowercase Inter + IBM Plex Mono) and in Spreekbuis's own colours.
+// Spreekbuis 2 — the window, in Spreekbuis 1.0's own look (dark cards, orange knobs, the navy karaoke card),
+// with the speech computer, the effects and the modulation on panel pages of their own.
 #pragma once
-#include "Art.h"
+#include "Processor.h"
+
+namespace sbui {
+// dark only (Tongval's dark palette), as in 1.0
+const juce::Colour paper { 0xff141413 },  // background
+    card { 0xff1d1c1a },                  // panels
+    ink { 0xfff1ede4 },                   // text
+    mute { 0xff9b968c },                  // muted text
+    soft { 0xff3a3833 },                  // lines / borders
+    hover { 0xff2a2926 }, heavy { 0xff000000 },
+    orange { 0xffff6a00 }, navy { 0xff1b2a6b }, blue { 0xff3d74d6 }, ok { 0xff1f8a4c },
+    yellow { 0xfff4c20d }, dark { 0xff111111 };
+juce::Font sans(float h, bool bold = false);
+juce::Font mono(float h);
+
+struct Look : juce::LookAndFeel_V4 {
+    Look();
+    void drawRotarySlider(juce::Graphics&, int, int, int, int, float, float, float, juce::Slider&) override;
+    void drawButtonBackground(juce::Graphics&, juce::Button&, const juce::Colour&, bool, bool) override;
+    void drawButtonText(juce::Graphics&, juce::TextButton&, bool, bool) override;
+    void drawComboBox(juce::Graphics&, int, int, bool, int, int, int, int, juce::ComboBox&) override;
+    juce::Font getComboBoxFont(juce::ComboBox&) override { return sans(13); }
+    juce::Font getPopupMenuFont() override { return sans(14); }
+    juce::Font getLabelFont(juce::Label&) override { return sans(12); }
+};
+} // namespace sbui
 
 class SpreekbuisEditor : public juce::AudioProcessorEditor, private juce::Timer {
 public:
@@ -10,7 +35,8 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
     bool keyPressed(const juce::KeyPress&) override;
-    static constexpr int W = 1100, H = 780;
+    static constexpr int W = 1180, H = 800;
+    static constexpr int kPages = 3;   // klanken (1.0's panels), spraak + fx, mod
 
     // tests / screenshots
     void showPage(int page);
@@ -20,8 +46,7 @@ public:
 private:
     void timerCallback() override;
     SpreekbuisProcessor& proc;
-    struct Look;
-    std::unique_ptr<Look> look;
+    sbui::Look look;
     struct Content;
     std::unique_ptr<Content> content;
     juce::TooltipWindow tips { this, 700 };

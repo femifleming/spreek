@@ -1188,7 +1188,7 @@ bool SpreekbuisProcessor::applyStateXml(const juce::XmlElement& xml) {
     auto s = root.getChildWithName("SpreekbuisState");
     if (s.isValid()) {
         int old = orcaPort();
-        for (auto name : { "orcaPort", "uiW", "uiH", "uiPage" }) if (s.hasProperty(name)) state.setProperty(name, s.getProperty(name), nullptr);
+        for (auto name : { "orcaPort", "uiW", "uiH", "uiPage", "uiTab" }) if (s.hasProperty(name)) state.setProperty(name, s.getProperty(name), nullptr);
         if (orcaPort() != old) orca.reset();
         plan->setKeyboardText(s.getProperty("keyb", "").toString());
         sclCents.clear();

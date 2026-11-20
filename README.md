@@ -1,30 +1,31 @@
 <p align="center"><img src="Resources/icon.png" width="96"></p>
 
-# spreek
+# spreekbuis
 
 **Spreekbuis** — Dutch as an instrument, with a speech computer inside. One plug-in (VST3 / VST2 / AU / standalone) for
-macOS, Windows and Linux.
+macOS, Windows and Linux. Its own repository, separate from the faltung suite.
 
-<p align="center"><img src="docs/img/after/spreekbuis-2.0-1-loop.png" width="760"></p>
+<p align="center"><img src="docs/img/spreekbuis-2.1-1-klanken.png" width="760"></p>
 
-Until 1.0 this repository shipped two plug-ins, Spreekbuis and Spraakmaker. Since **2.0** they are one instrument in the
-design language of the faltung suite, in Spreekbuis's colours (dark field, orange, navy, karaoke yellow). Its layers, each
-a page of the window, mixed freely from one mixer:
+Until 1.0 this repository shipped two plug-ins, Spreekbuis and Spraakmaker. Since **2.0** they are one instrument. Since
+**2.1** it has Spreekbuis 1.0's own look again (dark panels, orange knobs, the navy karaoke card with Sanne): the 1.0
+panels on the **Klanken** tab, the speech computer and the effects on **Spraak + FX**, the modulation on **Mod**.
+Its layers, each with its own on switch and level:
 
-- **loop** (lp1) — the Tongval lesson as tempo-synced call and response: karaoke, the English whispered in the answer bars,
+- **loop** (Klanken) — the Tongval lesson as tempo-synced call and response: karaoke, the English whispered in the answer bars,
   a MIDI out note at every word onset.
-- **wolk** (wk2) — a granular cloud of the words you know, plus translation grains through a 12-band noise vocoder.
-- **klinker** (kl3) — a formant filter steered by the Dutch vowel chart (i y u ɪ ʏ e ø o ə ɔ ɛ a ɑ, the glides ɛi œy ʌu);
+- **wolk** (Klanken) — a granular cloud of the words you know, plus translation grains through a 12-band noise vocoder.
+- **klinker** (Klanken) — a formant filter steered by the Dutch vowel chart (i y u ɪ ʏ e ø o ə ɔ ɛ a ɑ, the glides ɛi œy ʌu);
   sources saw, noise, the input — or the loop, the cloud, the speech computer or all of them heard through it.
-- **g** (gg4) — the Dutch g/ch, hard Holland /x/ to soft Flemish /ɣ/.
-- **spraak** (sp5) — the speech computer (Spraakmaker 1.0): an 80s-style Klatt formant synthesizer that turns text into
+- **g** (Klanken) — the Dutch g/ch, hard Holland /x/ to soft Flemish /ɣ/.
+- **spraak** (Spraak + FX) — the speech computer (Spraakmaker 1.0): an 80s-style Klatt formant synthesizer that turns text into
   Dutch or English speech (CMUdict English, rule-based Dutch); sources dict, alpha, keyb, markov, lettr, 99 lists and **les**
   (the word bank); triggers auto / trig / gate / ph.trg / ph.gate; engines classic (up to 4 voices), vocoder, vosinger
   (chords); tunings equal / just / pythag / meantn / 24-tet / Scala; Sanne, the pixel tutor, mouths the phonemes.
-- **fx** (fx6) — bitcrush, width, ping-pong echo, reverb: on the speech computer, or on everything.
-- **mod** (md7) — four LFOs, four matrix slots, three macros; sources include every word the bank says, the layers'
+- **fx** (Spraak + FX) — bitcrush, width, ping-pong echo, reverb: on the speech computer, or on everything.
+- **mod** (Mod) — four LFOs, four matrix slots, three macros; sources include every word the bank says, the layers'
   loudness and the vowel chart; destinations every layer.
-- **orca** (oc8) — UDP on 127.0.0.1:49162: `;fiets` speaks a word, `;g7` fires the g, `;vui` hits a vowel,
+- **orca** (Klanken) — UDP on 127.0.0.1:49162: `;fiets` speaks a word, `;g7` fires the g, `;vui` hits a vowel,
   `;=hallo_jij` makes the speech computer say it, `;!` triggers it.
 
 They work on each other: one voice switch (man / vrouw) for the recorded words, the vowel chart and the speech computer; one
@@ -32,17 +33,17 @@ clock; the speech computer can **answer the loop** (it repeats each item in the 
 loop's **word onsets trigger** it (with or without their notes), it can **read the lesson** (source les), the vocoder can
 **listen to the bank's voice** (vosinger sings the lesson in chords), and the keys can play any layer or all of them.
 
-**Old sessions.** Spreekbuis 2.0 keeps Spreekbuis 1.0's plug-in and parameter IDs, so 1.0 sessions open unchanged.
+**Old sessions.** Spreekbuis 2 keeps Spreekbuis 1.0's plug-in and parameter IDs, so 1.0 sessions open unchanged.
 Spraakmaker 1.0 states, preset slots and host preset files (.vstpreset, .aupreset, .fxp) import into the speech computer
 (preset menu → *open of importeer*). Spraakmaker 1.0 itself is no longer built; its last release is
-[v1.0.0](https://github.com/femifleming/spreek/releases/tag/v1.0.0).
+[v1.0.0](https://github.com/femifleming/spreekbuis/releases/tag/v1.0.0).
 
 **Install (macOS):** `brew tap femifleming/tap && brew install --cask femifleming/tap/spreekbuis` — or download
 `spreek-macOS.zip`, `spreek-Windows.zip` or `spreek-Linux.tar.gz` from the
-[releases](https://github.com/femifleming/spreek/releases) (the plug-in in every format, the app, the manual and the voice tools).
+[releases](https://github.com/femifleming/spreekbuis/releases) (the plug-in in every format, the app, the manual and the voice tools).
 
 **Manual:** [Spreekbuis Manual.pdf](docs/Spreekbuis%20Manual.pdf) (source `docs/manual.html`; `scripts/manuals.sh` re-prints it with Chrome).
-Before / after: `docs/img/before/` (1.0's two windows), `docs/img/after/` (every page of 2.0).
+Screenshots: `docs/img/spreekbuis-2.1-*.png` (the three tabs), `docs/img/before/` (1.0's two windows).
 
 **The voice.** Spreekbuis plays recorded audio of every course item. Render that voice bank once with
 `tools/render.sh` (`--female` for the woman's bank, `--force` to redo everything). Engines, best first:

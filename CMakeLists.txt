@@ -8,7 +8,7 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum macOS")
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 endif()
-project(spreek VERSION 2.0.0 LANGUAGES C CXX)
+project(spreek VERSION 2.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -66,13 +66,8 @@ juce_add_binary_data(SpraakData SOURCES
     common/data/en_dict.txt common/data/nl_words.txt common/data/nl_corpus.txt common/data/en_corpus.txt)
 # the course items (Dutch + English gloss) the built-in voice speaks when no voice bank has been rendered
 juce_add_binary_data(SbData NAMESPACE SbData HEADER_NAME SbData.h SOURCES data/items.json)
-# the type of the faltung design system (Inter, IBM Plex Mono; SIL Open Font Licence)
-juce_add_binary_data(SbFonts NAMESPACE SbFonts HEADER_NAME SbFonts.h SOURCES
-    Resources/fonts/Inter-Regular.ttf Resources/fonts/Inter-Medium.ttf
-    Resources/fonts/IBMPlexMono-Regular.ttf Resources/fonts/IBMPlexMono-Medium.ttf)
-
-set(SB_SOURCES Source/Bank.cpp Source/Processor.cpp Source/Ui.cpp Source/Art.cpp Source/Editor.cpp ${SPREEK_COMMON_SOURCES})
-set(SB_LIBS SpraakData SbData SbFonts juce::juce_audio_utils juce::juce_dsp)
+set(SB_SOURCES Source/Bank.cpp Source/Processor.cpp Source/Editor.cpp ${SPREEK_COMMON_SOURCES})
+set(SB_LIBS SpraakData SbData juce::juce_audio_utils juce::juce_dsp)
 
 juce_add_plugin(Spreekbuis
     VERSION ${PROJECT_VERSION}

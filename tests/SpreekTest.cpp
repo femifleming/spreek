@@ -137,7 +137,7 @@ int main (int argc, char** argv)
         std::unique_ptr<juce::AudioProcessorEditor> ed (p.createEditor());
         ed->setSize (SpreekbuisEditor::W, SpreekbuisEditor::H);
         auto* se = dynamic_cast<SpreekbuisEditor*> (ed.get());
-        for (int pg = 0; pg < 8; ++pg)
+        for (int pg = 0; pg < SpreekbuisEditor::kPages; ++pg)
         {
             se->showPage (pg);
             for (int k = 0; k < 4; ++k) { render (p, 0.1); se->tickForTest(); }
